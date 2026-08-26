@@ -1,0 +1,17 @@
+{
+  "name": "MTG Commander Companion",
+  "short_name": "MTG Companion",
+  "description": "L'app definitiva per le tue partite Commander",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
