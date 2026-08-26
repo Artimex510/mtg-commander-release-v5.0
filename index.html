@@ -4,15 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MTG Commander Companion</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#000000">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     body { -webkit-font-smoothing: antialiased; overflow-x: hidden; user-select: none; -webkit-touch-callout: none; background-color: #000; }
-    .animate-fade { animation: fadeIn 0.2s ease-in-out; }
+    .animate-fade { animation: fadeIn 0.2s ease-in-out; forwards; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes splashFade { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; display: none; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
     button { touch-action: manipulation; }
     
     input[type=number]::-webkit-inner-spin-button, 
@@ -48,79 +53,135 @@
     ];
 
     function App() {
-      const [showSplash, setShowSplash] = useState(true);
+      const [introState, setIntroState] = useState('initial'); 
+      const videoRef = useRef(null);
+
       const [view, setView] = useState('home');
       const [menuOpen, setMenuOpen] = useState(false);
       const [activeDeck, setActiveDeck] = useState(null); 
       
       useEffect(() => {
-        const timer = setTimeout(() => { setShowSplash(false); }, 3000);
-        return () => clearTimeout(timer);
+        window.history.pushState(null, null, window.location.href);
+        const handlePopState = (e) => {
+            const leave = window.confirm("Vuoi uscire dall'app? Le modifiche non salvate andranno perse.");
+            if (!leave) { window.history.pushState(null, null, window.location.href); }
+        };
+        const handleBeforeUnload = (e) => { e.returnValue = "Vuoi uscire dall'app?"; };
+        
+        window.addEventListener("popstate", handlePopState);
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        
+        return () => {
+           window.removeEventListener("popstate", handlePopState);
+           window.removeEventListener("beforeunload", handleBeforeUnload);
+        };
       }, []);
 
       const navigate = (newView, deck = null) => { setActiveDeck(deck); setView(newView); setMenuOpen(false); };
 
-      if (showSplash) {
-        return (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black" style={{ animation: 'splashFade 3.5s forwards' }}>
-            <img src="mtg-bg.jpg" alt="Splash" className="w-full h-full object-cover" />
-          </div>
-        );
-      }
+      const handlePlayIntro = () => {
+         if(videoRef.current) {
+             const playPromise = videoRef.current.play();
+             if (playPromise !== undefined) {
+                 playPromise.then(() => {
+                     setIntroState('playing');
+                 }).catch(e => {
+                     console.error("Errore riproduzione video o video assente:", e);
+                     setIntroState('finished'); 
+                 });
+             }
+         } else {
+             setIntroState('finished');
+         }
+      };
+
+      const finishIntro = () => {
+         if(videoRef.current) videoRef.current.pause();
+         setIntroState('finished');
+      };
 
       return (
         <div className="min-h-screen flex flex-col text-gray-100 bg-cover bg-center bg-fixed" style={{ backgroundImage: "url('mtg-bg.jpg')" }}>
-          <div className="min-h-screen bg-gray-900/85 backdrop-blur-sm flex flex-col">
-            
-            {view !== 'game_active' && (
-              <header className="bg-gray-900/95 border-b border-gray-700 p-4 flex justify-between items-center fixed top-0 w-full z-50 shadow-md no-print">
-                <button onClick={() => setMenuOpen(true)} className="text-gray-300 hover:text-white"><Icons.Menu /></button>
-                <h1 className="text-lg font-bold tracking-widest text-white">MTG <span className="text-red-500">FOR FUN</span></h1>
-                <button onClick={() => navigate('home')} className="text-gray-300 hover:text-white"><Icons.Home /></button>
-              </header>
-            )}
+          
+          {introState !== 'finished' && (
+             <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center overflow-hidden">
+                <video 
+                    ref={videoRef} 
+                    playsInline 
+                    onEnded={finishIntro}
+                    onError={finishIntro}
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${introState === 'playing' ? 'opacity-100 z-10' : 'opacity-0 z-[-1]'}`}
+                >
+                   <source src="intro.mp4" type="video/mp4" />
+                </video>
 
-            {menuOpen && (
-              <div className="fixed inset-0 bg-black/80 z-50 no-print" onClick={() => setMenuOpen(false)}>
-                <div className="w-64 bg-gray-900 h-full p-6 shadow-2xl border-r border-gray-700" onClick={e => e.stopPropagation()}>
-                  <h2 className="text-2xl font-bold mb-6 border-b border-gray-700 pb-2">Menu</h2>
-                  <nav className="space-y-4">
-                    <MenuBtn icon={<Icons.Home/>} text="Home" onClick={() => navigate('home')} />
-                    <MenuBtn icon="🎴" text="Deckbuilding" onClick={() => navigate('deckbuilder')} />
-                    <MenuBtn icon="📚" text="I Miei Mazzi" onClick={() => navigate('mydecks')} />
-                    <MenuBtn icon="✨" text="Proxy Creator" onClick={() => navigate('proxycreator')} />
-                    <MenuBtn icon="⚔️" text="Life Tracker" onClick={() => navigate('game')} />
-                    <MenuBtn icon="🎲" text="Lancia Dado" onClick={() => navigate('dice')} />
-                    <MenuBtn icon="⚖️" text="Regole & Judge" onClick={() => navigate('rules')} />
-                  </nav>
+                {introState === 'initial' && (
+                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 animate-fade z-20">
+                      <img src="mtg-bg.jpg" className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none" />
+                      <h2 className="relative z-10 text-4xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] tracking-widest mb-10">MTG <span className="text-red-500">FOR FUN</span></h2>
+                      <button onClick={handlePlayIntro} className="relative z-10 bg-red-600 hover:bg-red-500 text-white font-black text-3xl py-5 px-12 rounded-full shadow-[0_0_40px_rgba(220,38,38,0.8)] animate-pulse border-2 border-red-400 transition-all active:scale-95">▶ START</button>
+                      <button onClick={finishIntro} className="relative z-10 mt-8 text-gray-400 font-bold underline px-6 py-2">Skip Intro</button>
+                   </div>
+                )}
+                
+                {introState === 'playing' && (
+                   <button onClick={finishIntro} className="absolute top-8 right-6 z-[210] bg-black/60 text-white px-4 py-2 rounded-full font-bold border border-white/30 shadow-lg backdrop-blur-sm active:scale-95 animate-fade">Skip ⏭</button>
+                )}
+             </div>
+          )}
+
+          {introState === 'finished' && (
+            <div className="min-h-screen bg-gray-900/85 backdrop-blur-sm flex flex-col animate-fade">
+              
+              {view !== 'game_active' && (
+                <header className="bg-gray-900/95 border-b border-gray-700 p-4 flex justify-between items-center fixed top-0 w-full z-50 shadow-md no-print">
+                  <button onClick={() => setMenuOpen(true)} className="text-gray-300 hover:text-white"><Icons.Menu /></button>
+                  <h1 className="text-lg font-bold tracking-widest text-white">MTG <span className="text-red-500">FOR FUN</span></h1>
+                  <button onClick={() => navigate('home')} className="text-gray-300 hover:text-white"><Icons.Home /></button>
+                </header>
+              )}
+
+              {menuOpen && (
+                <div className="fixed inset-0 bg-black/80 z-50 no-print animate-fade" onClick={() => setMenuOpen(false)}>
+                  <div className="w-64 bg-gray-900 h-full p-6 shadow-2xl border-r border-gray-700" onClick={e => e.stopPropagation()}>
+                    <h2 className="text-2xl font-bold mb-6 border-b border-gray-700 pb-2">Menu</h2>
+                    <nav className="space-y-4">
+                      <MenuBtn icon={<Icons.Home/>} text="Home" onClick={() => navigate('home')} />
+                      <MenuBtn icon="🎴" text="Deckbuilding" onClick={() => navigate('deckbuilder')} />
+                      <MenuBtn icon="📚" text="I Miei Mazzi" onClick={() => navigate('mydecks')} />
+                      <MenuBtn icon="✨" text="Proxy Creator" onClick={() => navigate('proxycreator')} />
+                      <MenuBtn icon="⚔️" text="Life Tracker" onClick={() => navigate('game')} />
+                      <MenuBtn icon="🎲" text="Lancia Dado" onClick={() => navigate('dice')} />
+                      <MenuBtn icon="⚖️" text="Regole & Judge" onClick={() => navigate('rules')} />
+                    </nav>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <main className={`${view !== 'game_active' ? 'pt-20 px-2 pb-10' : ''} flex-1 animate-fade relative z-10`}>
-              {view === 'home' && <HomeView navigate={navigate} />}
-              {view === 'deckbuilder' && <DeckBuilder navigate={navigate} activeDeck={activeDeck} />}
-              {view === 'mydecks' && <MyDecks navigate={navigate} />}
-              {view === 'viewdeck' && <DeckViewer deck={activeDeck} navigate={navigate} />}
-              {view === 'analysis' && <DeckAnalysis deck={activeDeck} navigate={navigate} />}
-              {view === 'proxycreator' && <ProxyEditor isStandalone={true} />}
-              {view === 'printview' && <PrintView deck={activeDeck} navigate={navigate} />}
-              {(view === 'game' || view === 'game_active') && <GameUtility view={view} setView={setView} />}
-              {view === 'dice' && <DiceRoller />}
-              {view === 'rules' && <RulesAI />}
-            </main>
-          </div>
+              <main className={`${view !== 'game_active' ? 'pt-20 px-2 pb-10' : ''} flex-1 relative z-10`}>
+                {view === 'home' && <HomeView navigate={navigate} />}
+                {view === 'deckbuilder' && <DeckBuilder navigate={navigate} activeDeck={activeDeck} />}
+                {view === 'mydecks' && <MyDecks navigate={navigate} />}
+                {view === 'viewdeck' && <DeckViewer deck={activeDeck} navigate={navigate} />}
+                {view === 'analysis' && <DeckAnalysis deck={activeDeck} navigate={navigate} />}
+                {view === 'proxycreator' && <ProxyEditor isStandalone={true} />}
+                {view === 'printview' && <PrintView deck={activeDeck} navigate={navigate} />}
+                {(view === 'game' || view === 'game_active') && <GameUtility view={view} setView={setView} />}
+                {view === 'dice' && <DiceRoller />}
+                {view === 'rules' && <RulesAI />}
+              </main>
+            </div>
+          )}
         </div>
       );
     }
 
     const MenuBtn = ({icon, text, onClick}) => (
-      <button onClick={onClick} className="w-full flex items-center space-x-3 text-gray-300 hover:text-white p-2 rounded hover:bg-gray-800">
+      <button onClick={onClick} className="w-full flex items-center space-x-3 text-gray-300 hover:text-white p-2 rounded hover:bg-gray-800 transition-colors">
         <span className="flex items-center justify-center w-6 h-6">{icon}</span> <span className="font-semibold">{text}</span>
       </button>
     );
 
-    // --- HOME ---
     const HomeView = ({navigate}) => (
       <div className="flex flex-col items-center justify-center pt-8">
         <div className="mb-12 text-center">
@@ -144,7 +205,6 @@
       </button>
     );
 
-    // --- PROXY EDITOR ---
     const ProxyEditor = ({card, onClose, onSave, isStandalone}) => {
       const [baseQuery, setBaseQuery] = useState("");
       const [baseCard, setBaseCard] = useState(card ? {name: card.name, type: card.type, img: card.image, cmc: card.cmc} : null);
@@ -164,9 +224,12 @@
           .then(c => {
              try {
                  if(c.id) {
-                   let imgUrl = "";
-                   if (c.image_uris && c.image_uris.normal) imgUrl = c.image_uris.normal;
-                   else if (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris) imgUrl = c.card_faces[0].image_uris.normal;
+                   let imgUrl = ""; let imgBack = null;
+                   if (c.image_uris && c.image_uris.normal) { imgUrl = c.image_uris.normal; } 
+                   else if (c.card_faces && c.card_faces.length > 0) {
+                       if (c.card_faces[0].image_uris) imgUrl = c.card_faces[0].image_uris.normal;
+                       if (c.card_faces.length > 1 && c.card_faces[1].image_uris) imgBack = c.card_faces[1].image_uris.normal;
+                   }
                    
                    setBaseCard({ name: c.name || "Sconosciuta", type: c.type_line || "", img: imgUrl, cmc: c.cmc || 0 });
                    setCustomName(""); setCustomImg(""); setZoom(1); setPosX(50); setPosY(50);
@@ -224,7 +287,7 @@
              }
 
              const finalDataUrl = canvas.toDataURL("image/jpeg", 0.9);
-             const newProxy = { id: 'proxy-' + Date.now(), name: customName || baseCard.name, image: finalDataUrl, proxyImage: finalDataUrl, type: baseCard.type, cmc: baseCard.cmc || 0, colors: card ? (card.colors || []) : [], isCommander: false, isCustom: true };
+             const newProxy = { id: 'proxy-' + Date.now(), name: customName || baseCard.name, image: finalDataUrl, proxyImage: finalDataUrl, imageBack: null, type: baseCard.type, cmc: baseCard.cmc || 0, colors: card ? (card.colors || []) : [], isCommander: false, isCustom: true };
              
              let savedProxies = JSON.parse(localStorage.getItem('mtg_proxies') || '[]');
              savedProxies.push(newProxy); localStorage.setItem('mtg_proxies', JSON.stringify(savedProxies));
@@ -297,7 +360,9 @@
         </div>
       );
 
-      if (isStandalone) return <div className="max-w-md mx-auto pt-4 pb-10 relative z-20">{editorUI}</div>;
+      if (isStandalone) {
+         return <div className="max-w-md mx-auto pt-4 pb-10 relative z-20">{editorUI}</div>;
+      }
       return (
         <div className="fixed inset-0 bg-gray-900 z-[9999] h-[100dvh] w-full flex flex-col animate-fade overflow-y-auto">
            <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md">
@@ -312,7 +377,23 @@
       );
     };
 
-    // --- DECKBUILDER (RICERCA FULL OPTIONAL) ---
+    // LOGICA DI GRUPPO CONDIVISA PER DECKBUILDER E VIEWER
+    const getCardCategory = (card) => {
+        if (card.isCmdrFlag) return "Comandante";
+        const t = (card.type || "").toLowerCase();
+        if (t.includes("creature")) return "Creature";
+        if (t.includes("planeswalker")) return "Planeswalker";
+        if (t.includes("instant")) return "Istantanei";
+        if (t.includes("sorcery")) return "Stregonerie";
+        if (t.includes("artifact")) return "Artefatti";
+        if (t.includes("enchantment")) return "Incantesimi";
+        if (t.includes("land")) return "Terre";
+        return "Altro";
+    };
+
+    const categoriesOrder = ["Comandante", "Creature", "Planeswalker", "Istantanei", "Stregonerie", "Artefatti", "Incantesimi", "Terre", "Altro"];
+
+    // --- DECKBUILDER ---
     const DeckBuilder = ({navigate, activeDeck}) => {
       const [deckName, setDeckName] = useState(activeDeck ? activeDeck.name : "");
       const [deckFormat, setDeckFormat] = useState(activeDeck ? (activeDeck.format || 'commander') : 'commander');
@@ -326,6 +407,7 @@
       const [cardType, setCardType] = useState("");
       const [cardType2, setCardType2] = useState("");
       const [subType, setSubType] = useState("");
+      const [rarity, setRarity] = useState("");
       const [cmcOp, setCmcOp] = useState("=");
       const [cmcVal, setCmcVal] = useState("");
       
@@ -336,8 +418,10 @@
       
       const [selectedCard, setSelectedCard] = useState(null);
       const [addQty, setAddQty] = useState(1); 
+      
       const [managingCard, setManagingCard] = useState(null);
       const [manageQty, setManageQty] = useState(0);
+
       const [editingProxyCard, setEditingProxyCard] = useState(null);
       
       const [importText, setImportText] = useState("");
@@ -345,21 +429,47 @@
       
       const [savedScroll, setSavedScroll] = useState(0);
 
-      // Gestione ITA Translator nel Deckbuilder
       const [itaImg, setItaImg] = useState(null);
+      const [itaImgBack, setItaImgBack] = useState(null);
+      const [showBack, setShowBack] = useState(false);
       const [translating, setTranslating] = useState(false);
+      
+      const [printsList, setPrintsList] = useState([]);
+      const [loadingPrints, setLoadingPrints] = useState(false);
 
       const openSubView = (setter, data, qtySetter = null, qtyVal = 1) => {
          setSavedScroll(window.scrollY);
          setter(data);
          if(qtySetter) qtySetter(qtyVal);
-         setItaImg(null); // Resetta traduzione
+         setItaImg(null); setItaImgBack(null); setShowBack(false); setPrintsList([]);
          window.scrollTo(0, 0);
       };
 
       const closeSubView = (setter) => {
          setter(null);
          setTimeout(() => window.scrollTo(0, savedScroll), 10);
+      };
+
+      const fetchOtherPrints = (card) => {
+          if(!card.printsUrl) return alert("Questa carta non ha altre stampe disponibili sul database.");
+          setLoadingPrints(true);
+          fetch(card.printsUrl)
+            .then(res => res.json())
+            .then(data => {
+                if(data.data && data.data.length > 0) {
+                    const mapped = data.data.filter(c => c.image_uris || (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris)).map(c => {
+                         let iImg = ""; let iImgBack = null;
+                         if (c.image_uris && c.image_uris.normal) iImg = c.image_uris.normal;
+                         else if (c.card_faces && c.card_faces.length > 0) {
+                             if (c.card_faces[0].image_uris && c.card_faces[0].image_uris.normal) iImg = c.card_faces[0].image_uris.normal;
+                             if (c.card_faces.length > 1 && c.card_faces[1].image_uris && c.card_faces[1].image_uris.normal) iImgBack = c.card_faces[1].image_uris.normal;
+                         }
+                         return { ...card, id: c.id, image: iImg, imageBack: iImgBack };
+                    });
+                    setPrintsList(mapped);
+                } else { alert("Nessun'altra stampa trovata."); }
+                setLoadingPrints(false);
+            }).catch(e => { console.error(e); setLoadingPrints(false); });
       };
 
       const translateCard = (card) => {
@@ -370,15 +480,17 @@
           .then(data => {
              if (data.data && data.data.length > 0) {
                  const itCard = data.data[0];
-                 let iImg = null;
-                 if (itCard.image_uris) iImg = itCard.image_uris.normal;
-                 else if (itCard.card_faces && itCard.card_faces[0].image_uris) iImg = itCard.card_faces[0].image_uris.normal;
-                 if (iImg) setItaImg(iImg);
+                 let iImg = null; let iImgBack = null;
+                 if (itCard.image_uris && itCard.image_uris.normal) { iImg = itCard.image_uris.normal; } 
+                 else if (itCard.card_faces && itCard.card_faces.length > 0) {
+                     if (itCard.card_faces[0].image_uris) iImg = itCard.card_faces[0].image_uris.normal;
+                     if (itCard.card_faces.length > 1 && itCard.card_faces[1].image_uris) iImgBack = itCard.card_faces[1].image_uris.normal;
+                 }
+                 if (iImg) { setItaImg(iImg); setItaImgBack(iImgBack); }
                  else alert("Immagine italiana non trovata.");
              } else { alert("Traduzione ufficiale italiana non stampata per questa carta."); }
              setTranslating(false);
-          })
-          .catch(e => { alert("Errore di connessione."); setTranslating(false); });
+          }).catch(e => { alert("Errore di connessione."); setTranslating(false); });
       };
 
       const toggleMana = (m) => setMana(mana.includes(m) ? mana.filter(x => x !== m) : [...mana, m]);
@@ -391,14 +503,17 @@
             try {
                 if (data.data && Array.isArray(data.data)) {
                    const cards = data.data.filter(c => c.image_uris || (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris)).map(c => {
-                     let img = "";
-                     if (c.image_uris && c.image_uris.normal) img = c.image_uris.normal;
-                     else if (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris && c.card_faces[0].image_uris.normal) img = c.card_faces[0].image_uris.normal;
-                     return { id: c.id || Math.random().toString(), name: c.name || "Sconosciuta", image: img, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, isCommander: false };
+                     let img = ""; let imgBack = null;
+                     if (c.image_uris && c.image_uris.normal) { img = c.image_uris.normal; } 
+                     else if (c.card_faces && c.card_faces.length > 0) {
+                         if (c.card_faces[0].image_uris && c.card_faces[0].image_uris.normal) img = c.card_faces[0].image_uris.normal;
+                         if (c.card_faces.length > 1 && c.card_faces[1].image_uris && c.card_faces[1].image_uris.normal) imgBack = c.card_faces[1].image_uris.normal;
+                     }
+                     return { id: c.id || Math.random().toString(), name: c.name || "Sconosciuta", image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, isCommander: false };
                    });
                    if(isNewSearch) { setAllResults(cards); setLocalPage(0); } else { setAllResults(prev => [...prev, ...cards]); }
                    setNextScryfallUrl(data.has_more ? data.next_page : null);
-                } else { if(isNewSearch) { setAllResults([]); alert("Nessuna carta trovata!"); } }
+                } else { if(isNewSearch) { setAllResults([]); alert("Nessuna carta trovata."); } }
             } catch (err) { console.error("Errore lettura", err); }
             setLoading(false);
           }).catch(e => { console.error("Rete", e); setLoading(false); });
@@ -407,6 +522,7 @@
       const searchCard = () => {
         let searchQuery = query ? `${query} ` : "";
         if (oracleText) searchQuery += `o:"${oracleText}" `;
+        if (rarity) searchQuery += `r:${rarity} `;
         if (mana.length > 0) {
            if (cardType === 'land') searchQuery += `id>=${mana.join('')} `; else searchQuery += `c>=${mana.join('')} `;
         }
@@ -475,10 +591,13 @@
             .then(c => {
                let arr = [];
                for(let j=0; j<qty; j++) {
-                 let img = "";
-                 if (c.image_uris && c.image_uris.normal) img = c.image_uris.normal;
-                 else if (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris && c.card_faces[0].image_uris.normal) img = c.card_faces[0].image_uris.normal;
-                 arr.push({ id: c.id || Math.random().toString(), deckId: 'import-' + Date.now() + '-' + Math.random() + '-' + j, name: c.name || "Sconosciuta", image: img, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, isCommander: false });
+                 let img = ""; let imgBack = null;
+                 if (c.image_uris && c.image_uris.normal) { img = c.image_uris.normal; } 
+                 else if (c.card_faces && c.card_faces.length > 0) {
+                     if (c.card_faces[0].image_uris && c.card_faces[0].image_uris.normal) img = c.card_faces[0].image_uris.normal;
+                     if (c.card_faces.length > 1 && c.card_faces[1].image_uris && c.card_faces[1].image_uris.normal) imgBack = c.card_faces[1].image_uris.normal;
+                 }
+                 arr.push({ id: c.id || Math.random().toString(), deckId: 'import-' + Date.now() + '-' + Math.random() + '-' + j, name: c.name || "Sconosciuta", image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, isCommander: false });
                }
                return arr;
             }).catch(e => { return []; });
@@ -498,22 +617,21 @@
          closeSubView(setEditingProxyCard);
       };
 
-      const groupedDeck = [];
+      // NUOVO RAGGRUPPAMENTO E ORDINAMENTO CARTE
       const deckMap = {};
       deck.forEach(c => {
-         const key = c.name + (c.isCustom ? c.proxyImage : ""); 
-         if(!deckMap[key]) {
-            deckMap[key] = { ...c, count: 1, isCmdrFlag: c.isCommander };
-            groupedDeck.push(deckMap[key]);
-         } else {
-            deckMap[key].count++;
-            if(c.isCommander) deckMap[key].isCmdrFlag = true;
-         }
+         const key = c.name + (c.isCustom ? c.proxyImage : "") + c.id; 
+         if(!deckMap[key]) { deckMap[key] = { ...c, count: 1, isCmdrFlag: c.isCommander }; } 
+         else { deckMap[key].count++; if(c.isCommander) deckMap[key].isCmdrFlag = true; }
       });
+      
+      const groupedByCategory = { "Comandante": [], "Creature": [], "Planeswalker": [], "Istantanei": [], "Stregonerie": [], "Artefatti": [], "Incantesimi": [], "Terre": [], "Altro": [] };
+      Object.values(deckMap).forEach(c => { groupedByCategory[getCardCategory(c)].push(c); });
+      Object.keys(groupedByCategory).forEach(k => { groupedByCategory[k].sort((a,b) => a.name.localeCompare(b.name)); });
 
       const applyManageQty = () => {
-         const cardKey = managingCard.name + (managingCard.isCustom ? managingCard.proxyImage : "");
-         let newDeck = deck.filter(c => (c.name + (c.isCustom ? c.proxyImage : "")) !== cardKey);
+         const cardKey = managingCard.name + (managingCard.isCustom ? managingCard.proxyImage : "") + managingCard.id;
+         let newDeck = deck.filter(c => (c.name + (c.isCustom ? c.proxyImage : "") + c.id) !== cardKey);
          for(let i=0; i<manageQty; i++) {
             newDeck.push({...managingCard, deckId: 'card-' + Date.now() + '-' + i + '-' + Math.random(), isCommander: false});
          }
@@ -523,7 +641,7 @@
 
       const toggleGroupCommander = (cardKey) => {
          setDeck(deck.map(c => {
-            if ((c.name + (c.isCustom ? c.proxyImage : "")) === cardKey) return {...c, isCommander: !c.isCommander};
+            if ((c.name + (c.isCustom ? c.proxyImage : "") + c.id) === cardKey) return {...c, isCommander: !c.isCommander};
             return c;
          }));
       };
@@ -536,6 +654,7 @@
       if (!rulebreaker) {
          if (deckFormat === 'commander' && deck.length !== 100) warnings.push(`Commander: il mazzo deve avere 100 carte (ora ${deck.length}).`);
          if ((deckFormat === 'pauper' || deckFormat === 'modern') && deck.length < 60) warnings.push(`${deckFormat.toUpperCase()}: minimo 60 carte (ora ${deck.length}).`);
+
          if (deckFormat === 'commander') {
              if (commanders.length === 0) warnings.push("Commander: Manca il Comandante.");
              if (commanders.length > 0 && commanders.some(c => c.type && !c.type.toLowerCase().includes("legendary") && !c.type.toLowerCase().includes("planeswalker"))) {
@@ -577,80 +696,75 @@
 
       const isSubViewActive = selectedCard || managingCard || editingProxyCard;
 
+      const RenderModaleCarta = ({ targetCard, setterState, qtyVal, setQtyVal, actionLabel, actionFunc, closeFunc }) => {
+         const currentFront = itaImg || targetCard.proxyImage || targetCard.image || "mtg-bg.jpg";
+         const currentBack = itaImgBack || targetCard.imageBack;
+         const displayImg = showBack && currentBack ? currentBack : currentFront;
+
+         return (
+            <div className="w-full flex flex-col animate-fade pb-10">
+               <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md mb-6">
+                 <button onClick={() => closeSubView(closeFunc)} className="text-blue-400 font-bold flex items-center gap-1 text-lg"><Icons.Back /> Indietro</button>
+                 <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">{targetCard.name}</h2>
+                 <div className="w-8"></div>
+               </div>
+               
+               <div className="flex-1 flex flex-col items-center justify-start p-2">
+                 <img src={displayImg} alt={targetCard.name} className="w-auto max-h-[50vh] object-contain rounded-xl mb-4 shadow-2xl" />
+                 
+                 {currentBack && !targetCard.isCustom && (
+                    <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">
+                       🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}
+                    </button>
+                 )}
+                 
+                 <div className="w-full max-w-sm mb-4 flex gap-2">
+                    <button onClick={() => translateCard(targetCard)} disabled={translating} className="flex-1 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(67,56,202,0.4)] border border-indigo-500 transition-all text-xs">
+                      {translating ? "Traduco..." : "🇮🇹 Tenta Traduzione"}
+                    </button>
+                    {!targetCard.isCustom && targetCard.printsUrl && (
+                        <button onClick={() => fetchOtherPrints(targetCard)} disabled={loadingPrints} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl shadow-lg border border-orange-500 transition-all text-xs">
+                          {loadingPrints ? "Cerco..." : "🖼️ Altre Stampe"}
+                        </button>
+                    )}
+                 </div>
+
+                 {printsList.length > 0 && (
+                    <div className="w-full max-w-sm mb-4 bg-gray-800 p-2 rounded-xl border border-gray-600 shadow-md animate-fade">
+                       <p className="text-xs text-gray-300 font-bold mb-2">Seleziona una Stampa / Secret Lair:</p>
+                       <div className="flex overflow-x-auto gap-2 pb-2">
+                          {printsList.map(p => (
+                             <img key={p.id} src={p.image} className="w-20 rounded cursor-pointer border-2 border-transparent hover:border-blue-500 shadow-sm shrink-0" 
+                                  onClick={() => { setterState({...targetCard, image: p.image, imageBack: p.imageBack, id: p.id}); setPrintsList([]); }} />
+                          ))}
+                       </div>
+                    </div>
+                 )}
+
+                 <div className="bg-gray-800 rounded-xl w-full max-w-sm p-4 flex flex-col gap-4 shadow-xl border border-gray-600">
+                    <div className="flex justify-between items-center bg-gray-900 rounded-lg p-3 border border-gray-700">
+                       <span className="text-gray-400 font-bold px-2">{actionLabel === "Aggiungi" ? "Aggiungi Copie:" : "Copie Totali:"}</span>
+                       <div className="flex items-center gap-3">
+                          <button onClick={()=>setQtyVal(Math.max(actionLabel==="Aggiungi"?1:0, qtyVal-1))} className="w-12 h-12 bg-red-600 hover:bg-red-500 rounded-lg font-bold text-2xl text-white shadow transition-colors">-</button>
+                          <input type="number" inputMode="numeric" min={actionLabel==="Aggiungi"?"1":"0"} max="999" value={qtyVal} onChange={e=>setQtyVal(parseInt(e.target.value) || 0)} className="w-16 h-12 bg-gray-900 border border-gray-600 rounded-lg text-white text-center text-2xl font-black outline-none focus:border-blue-500 transition-colors" />
+                          <button onClick={()=>setQtyVal(qtyVal+1)} className="w-12 h-12 bg-green-600 hover:bg-green-500 rounded-lg font-bold text-2xl text-white shadow transition-colors">+</button>
+                       </div>
+                    </div>
+                    <button onClick={actionFunc} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-lg py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all">
+                      {actionLabel === "Aggiungi" ? "+ AGGIUNGI AL MAZZO" : "CONFERMA MODIFICHE"}
+                    </button>
+                 </div>
+              </div>
+            </div>
+         );
+      };
+
       return (
         <div className="max-w-2xl mx-auto relative z-10 w-full">
           
-          {/* SUB-VIEW: AGGIUNGI CARTA E TRADUZIONE */}
-          {selectedCard && (
-            <div className="w-full flex flex-col animate-fade pb-10">
-               <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md mb-6">
-                 <button onClick={() => closeSubView(setSelectedCard)} className="text-blue-400 font-bold flex items-center gap-1 text-lg"><Icons.Back /> Indietro</button>
-                 <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">{selectedCard.name}</h2>
-                 <div className="w-8"></div>
-               </div>
-               
-               <div className="flex-1 flex flex-col items-center justify-start p-2">
-                 <img src={itaImg || selectedCard.proxyImage || selectedCard.image || "mtg-bg.jpg"} alt={selectedCard.name} className="w-auto max-h-[50vh] object-contain rounded-xl mb-4 shadow-2xl" />
-                 
-                 <div className="w-full max-w-sm mb-4">
-                    <button onClick={() => translateCard(selectedCard)} disabled={translating} className="w-full bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg border border-indigo-500">
-                      {translating ? "Traduco..." : "🇮🇹 Tenta Traduzione Italiana"}
-                    </button>
-                 </div>
-
-                 <div className="bg-gray-800 rounded-xl w-full max-w-sm p-4 flex flex-col gap-4 shadow-xl border border-gray-600">
-                    <div className="flex justify-between items-center bg-gray-900 rounded-lg p-3 border border-gray-700">
-                       <span className="text-gray-400 font-bold">Aggiungi Copie:</span>
-                       <div className="flex items-center gap-3">
-                          <button onClick={()=>setAddQty(Math.max(1, addQty-1))} className="w-12 h-12 bg-red-600 hover:bg-red-500 rounded-lg font-bold text-2xl text-white shadow transition-colors">-</button>
-                          <input type="number" inputMode="numeric" min="1" max="999" value={addQty} onChange={e=>setAddQty(parseInt(e.target.value) || 0)} className="w-16 h-12 bg-gray-900 border border-gray-600 rounded-lg text-white text-center text-2xl font-black outline-none focus:border-blue-500 transition-colors" />
-                          <button onClick={()=>setAddQty(addQty+1)} className="w-12 h-12 bg-green-600 hover:bg-green-500 rounded-lg font-bold text-2xl text-white shadow transition-colors">+</button>
-                       </div>
-                    </div>
-                    <button onClick={addToDeckMulti} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-lg py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all">
-                      + AGGIUNGI AL MAZZO
-                    </button>
-                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* SUB-VIEW: GESTIONE COPIE NEL MAZZO E TRADUZIONE */}
-          {managingCard && (
-            <div className="w-full flex flex-col animate-fade pb-10">
-               <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md mb-6">
-                 <button onClick={() => closeSubView(setManagingCard)} className="text-blue-400 font-bold flex items-center gap-1 text-lg"><Icons.Back /> Indietro</button>
-                 <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">{managingCard.name}</h2>
-                 <div className="w-8"></div>
-               </div>
-               
-               <div className="flex-1 flex flex-col items-center justify-start p-2">
-                 <img src={itaImg || managingCard.proxyImage || managingCard.image || "mtg-bg.jpg"} alt={managingCard.name} className="w-auto max-h-[50vh] object-contain rounded-xl mb-4 shadow-2xl" />
-                 
-                 <div className="w-full max-w-sm mb-4">
-                    <button onClick={() => translateCard(managingCard)} disabled={translating} className="w-full bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg border border-indigo-500">
-                      {translating ? "Traduco..." : "🇮🇹 Tenta Traduzione Italiana"}
-                    </button>
-                 </div>
-
-                 <div className="bg-gray-800 rounded-xl w-full max-w-sm p-4 flex flex-col gap-4 shadow-xl border border-gray-600">
-                    <div className="flex justify-between items-center bg-gray-900 rounded-lg p-3 border border-gray-700">
-                       <span className="text-gray-400 font-bold">Copie Totali:</span>
-                       <div className="flex items-center gap-3">
-                          <button onClick={()=>setManageQty(Math.max(0, manageQty-1))} className="w-12 h-12 bg-red-600 hover:bg-red-500 rounded-lg font-bold text-2xl text-white shadow transition-colors">-</button>
-                          <input type="number" inputMode="numeric" min="0" max="999" value={manageQty} onChange={e=>setManageQty(parseInt(e.target.value) || 0)} className="w-16 h-12 bg-gray-900 border border-gray-600 rounded-lg text-white text-center text-2xl font-black outline-none focus:border-blue-500 transition-colors" />
-                          <button onClick={()=>setManageQty(manageQty+1)} className="w-12 h-12 bg-green-600 hover:bg-green-500 rounded-lg font-bold text-2xl text-white shadow transition-colors">+</button>
-                       </div>
-                    </div>
-                    <button onClick={applyManageQty} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black text-lg py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all">
-                      CONFERMA MODIFICHE
-                    </button>
-                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* SUB-VIEW: PROXY EDITOR INLINE */}
+          {selectedCard && <RenderModaleCarta targetCard={selectedCard} setterState={setSelectedCard} qtyVal={addQty} setQtyVal={setAddQty} actionLabel="Aggiungi" actionFunc={addToDeckMulti} closeFunc={setSelectedCard} />}
+          {managingCard && <RenderModaleCarta targetCard={managingCard} setterState={setManagingCard} qtyVal={manageQty} setQtyVal={setManageQty} actionLabel="Gestisci" actionFunc={applyManageQty} closeFunc={setManagingCard} />}
+          
           {editingProxyCard && (
             <div className="w-full flex flex-col animate-fade pb-10">
                <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md mb-6">
@@ -662,7 +776,6 @@
             </div>
           )}
 
-          {/* LISTA DECKBUILDER NORMALE */}
           <div className={isSubViewActive ? "hidden" : "space-y-4"}>
               <div className="bg-gray-800/90 p-4 rounded-xl border border-gray-600 shadow-md backdrop-blur-sm mt-4">
                 <input type="text" placeholder="Nome del Mazzo" value={deckName} onChange={e => setDeckName(e.target.value)} className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white text-xl font-bold mb-4 outline-none" />
@@ -695,7 +808,7 @@
                 </label>
               </div>
 
-              {/* FILTRI RICERCA COMPLETI */}
+              {/* FILTRI COMPLETI */}
               <div className="bg-gray-800/90 p-4 rounded-xl border border-gray-600 shadow-md backdrop-blur-sm">
                  <h3 className="font-bold text-blue-400 mb-2 border-b border-gray-700 pb-1">Ricerca Carte</h3>
                  <p className="text-[10px] text-gray-400 mb-3 text-center uppercase tracking-wider font-bold">🇺🇸 Cerca in Inglese (es. "Plains", "Angel")</p>
@@ -703,9 +816,8 @@
                  <div className="flex gap-2 mb-2">
                    <input type="text" placeholder="Nome della carta..." value={query} onChange={e => setQuery(e.target.value)} onKeyPress={e => e.key === 'Enter' && searchCard()} className="flex-1 bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none" />
                  </div>
-
                  <div className="flex gap-2 mb-3">
-                   <input type="text" placeholder="Testo Regole (es. Landfall, Deathtouch)" value={oracleText} onChange={e => setOracleText(e.target.value)} onKeyPress={e => e.key === 'Enter' && searchCard()} className="flex-1 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none" />
+                   <input type="text" placeholder="Testo Abilità (es. Landfall, Deathtouch)" value={oracleText} onChange={e => setOracleText(e.target.value)} onKeyPress={e => e.key === 'Enter' && searchCard()} className="flex-1 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none" />
                  </div>
                  
                  <div className="flex gap-2 mb-3 overflow-x-auto pb-1 justify-center">
@@ -720,6 +832,13 @@
                      <option value="legendary">Legendary</option>
                      <option value="basic">Basic</option>
                      <option value="snow">Snow</option>
+                   </select>
+                   <select value={rarity} onChange={e => setRarity(e.target.value)} className="bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none">
+                     <option value="">Rarità...</option>
+                     <option value="c">Comune</option>
+                     <option value="u">Non Comune</option>
+                     <option value="r">Rara</option>
+                     <option value="m">Mitica</option>
                    </select>
                    <select value={cardType} onChange={e => setCardType(e.target.value)} className="bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none">
                      <option value="">Tipo 1...</option>
@@ -738,7 +857,7 @@
                      <option value="enchantment">Incantesimo</option>
                      <option value="land">Terra</option>
                    </select>
-                   <input type="text" placeholder="Sottotipo (Goblin)" value={subType} onChange={e => setSubType(e.target.value)} className="bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none" />
+                   <input type="text" placeholder="Sottotipo (Goblin)" value={subType} onChange={e => setSubType(e.target.value)} className="col-span-2 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none" />
                  </div>
 
                  <div className="flex gap-2 mb-4">
@@ -767,7 +886,7 @@
                  )}
               </div>
 
-              {allResults.length > 0 ? (
+              {allResults.length > 0 && (
                 <div className="bg-gray-800/90 p-4 rounded-xl border border-gray-600 backdrop-blur-sm animate-fade">
                   <div className="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
                      <h3 className="text-gray-300 text-sm font-bold">Risultati:</h3>
@@ -786,67 +905,112 @@
                     ))}
                   </div>
                 </div>
-              ) : null}
+              )}
 
-              {groupedDeck.length > 0 ? (
+              {Object.keys(groupedByCategory).some(cat => groupedByCategory[cat].length > 0) && (
                 <div className="bg-gray-800/90 p-3 rounded-xl border border-gray-600 shadow-md backdrop-blur-sm animate-fade">
-                  <h3 className="font-bold text-white mb-3 pl-2">La tua Lista Raggruppata:</h3>
-                  <div className="space-y-2">
-                    {groupedDeck.map((card, index) => (
-                      <div key={index} className={`flex gap-2 bg-gray-900 p-2 rounded-lg border ${card.isCmdrFlag ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'border-gray-700'}`}>
-                        <div className="relative cursor-pointer shrink-0" onClick={() => openSubView(setManagingCard, card, setManageQty, card.count)}>
-                            <img src={card.proxyImage || card.image || "mtg-bg.jpg"} alt={card.name} className="w-14 rounded object-cover shadow border border-gray-600" />
-                            <div className="absolute -top-2 -right-2 bg-blue-600 text-white font-black text-xs w-6 h-6 flex items-center justify-center rounded-full shadow border border-blue-400">
-                               {card.count}
-                            </div>
-                        </div>
-                        
-                        <div className="flex-1 text-sm flex flex-col justify-between pt-1 overflow-hidden">
-                          <h4 className="font-bold text-gray-200 text-xs leading-tight truncate pr-1">{card.name}</h4>
-                          
-                          <div className="flex items-center justify-between mt-1">
-                            {deckFormat === 'commander' && (
-                              <label className="flex items-center gap-1 text-yellow-500 text-[10px] font-bold cursor-pointer">
-                                <input type="checkbox" checked={card.isCmdrFlag} onChange={() => toggleGroupCommander(card.name + (card.isCustom ? card.proxyImage : ""))} className="accent-yellow-500" /> Cmdr
-                              </label>
-                            )}
-                            
-                            <div className="flex gap-1 ml-auto">
-                              <button onClick={() => openSubView(setEditingProxyCard, deck.find(c => (c.name + (c.isCustom ? c.proxyImage : "")) === (card.name + (card.isCustom ? card.proxyImage : ""))))} className="text-[10px] bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded shadow transition-colors">🎨 Proxy</button>
-                            </div>
+                  <h3 className="font-bold text-white mb-3 pl-2">La tua Lista:</h3>
+                  <div className="space-y-4">
+                    {categoriesOrder.map(cat => {
+                       const cardsInCat = groupedByCategory[cat];
+                       if(cardsInCat.length === 0) return null;
+                       return (
+                          <div key={cat} className="space-y-2">
+                             <h4 className="text-xs font-black text-gray-400 border-b border-gray-700 pb-1 uppercase">{cat} ({cardsInCat.reduce((acc,c)=>acc+c.count,0)})</h4>
+                             {cardsInCat.map((card, index) => (
+                               <div key={index} className={`flex gap-2 bg-gray-900 p-2 rounded-lg border ${card.isCmdrFlag ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'border-gray-700'}`}>
+                                 <div className="relative cursor-pointer shrink-0" onClick={() => openSubView(setManagingCard, card, setManageQty, card.count)}>
+                                     <img src={card.proxyImage || card.image || "mtg-bg.jpg"} alt={card.name} className="w-14 rounded object-cover shadow border border-gray-600" />
+                                     <div className="absolute -top-2 -right-2 bg-blue-600 text-white font-black text-xs w-6 h-6 flex items-center justify-center rounded-full shadow border border-blue-400">
+                                        {card.count}
+                                     </div>
+                                 </div>
+                                 
+                                 <div className="flex-1 text-sm flex flex-col justify-between pt-1 overflow-hidden">
+                                   <h4 className="font-bold text-gray-200 text-xs leading-tight truncate pr-1">{card.name}</h4>
+                                   
+                                   <div className="flex items-center justify-between mt-1">
+                                     {deckFormat === 'commander' && (
+                                       <label className="flex items-center gap-1 text-yellow-500 text-[10px] font-bold cursor-pointer">
+                                         <input type="checkbox" checked={card.isCmdrFlag} onChange={() => toggleGroupCommander(card.name + (card.isCustom ? card.proxyImage : "") + card.id)} className="accent-yellow-500" /> Cmdr
+                                       </label>
+                                     )}
+                                     
+                                     <div className="flex gap-1 ml-auto">
+                                       <button onClick={() => openSubView(setEditingProxyCard, deck.find(c => (c.name + (c.isCustom ? c.proxyImage : "")) === (card.name + (card.isCustom ? card.proxyImage : ""))))} className="text-[10px] bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded shadow transition-colors">🎨 Proxy</button>
+                                     </div>
+                                   </div>
+                                 </div>
+                               </div>
+                             ))}
                           </div>
-                        </div>
-                      </div>
-                    ))}
+                       )
+                    })}
                   </div>
                 </div>
-              ) : null}
-              <button onClick={saveDeck} className="w-full bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(22,163,74,0.5)] sticky bottom-4 z-40 transition-colors">SALVA MAZZO</button>
+              )}
+              <button onClick={saveDeck} className="w-full bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(22,163,74,0.5)] sticky bottom-4 z-40 transition-colors mt-4">SALVA MAZZO</button>
           </div>
         </div>
       );
     };
 
-    // --- VISUALIZZATORE MAZZI (SOLO LETTURA E TRADUZIONE) ---
+    // --- VISUALIZZATORE MAZZI ---
     const DeckViewer = ({deck, navigate}) => {
       const [viewingCard, setViewingCard] = useState(null);
       const [itaImg, setItaImg] = useState(null);
+      const [itaImgBack, setItaImgBack] = useState(null);
+      const [showBack, setShowBack] = useState(false);
       const [translating, setTranslating] = useState(false);
+      const [savedScroll, setSavedScroll] = useState(0);
+
+      const [printsList, setPrintsList] = useState([]);
+      const [loadingPrints, setLoadingPrints] = useState(false);
 
       if(!deck) return null;
 
-      const groupedDeck = [];
       const deckMap = {};
       deck.cards.forEach(c => {
-         const key = c.name + (c.isCustom ? c.proxyImage : ""); 
-         if(!deckMap[key]) {
-            deckMap[key] = { ...c, count: 1 };
-            groupedDeck.push(deckMap[key]);
-         } else { deckMap[key].count++; }
+         const key = c.name + (c.isCustom ? c.proxyImage : "") + c.id; 
+         if(!deckMap[key]) { deckMap[key] = { ...c, count: 1 }; } 
+         else { deckMap[key].count++; }
       });
+      const groupedByCategory = { "Comandante": [], "Creature": [], "Planeswalker": [], "Istantanei": [], "Stregonerie": [], "Artefatti": [], "Incantesimi": [], "Terre": [], "Altro": [] };
+      Object.values(deckMap).forEach(c => { groupedByCategory[getCardCategory(c)].push(c); });
+      Object.keys(groupedByCategory).forEach(k => { groupedByCategory[k].sort((a,b) => a.name.localeCompare(b.name)); });
 
-      const openViewer = (c) => { setItaImg(null); setViewingCard(c); window.scrollTo(0,0); };
-      const closeViewer = () => { setViewingCard(null); };
+      const openViewer = (c) => { 
+          setSavedScroll(window.scrollY);
+          setItaImg(null); setItaImgBack(null); setShowBack(false); setPrintsList([]);
+          setViewingCard(c); window.scrollTo(0,0); 
+      };
+      
+      const closeViewer = () => { 
+          setViewingCard(null); 
+          setTimeout(() => window.scrollTo(0, savedScroll), 10);
+      };
+
+      const fetchOtherPrints = (card) => {
+          if(!card.printsUrl) return alert("Questa carta non ha altre stampe disponibili sul database.");
+          setLoadingPrints(true);
+          fetch(card.printsUrl)
+            .then(res => res.json())
+            .then(data => {
+                if(data.data && data.data.length > 0) {
+                    const mapped = data.data.filter(c => c.image_uris || (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris)).map(c => {
+                         let iImg = ""; let iImgBack = null;
+                         if (c.image_uris && c.image_uris.normal) iImg = c.image_uris.normal;
+                         else if (c.card_faces && c.card_faces.length > 0) {
+                             if (c.card_faces[0].image_uris && c.card_faces[0].image_uris.normal) iImg = c.card_faces[0].image_uris.normal;
+                             if (c.card_faces.length > 1 && c.card_faces[1].image_uris && c.card_faces[1].image_uris.normal) iImgBack = c.card_faces[1].image_uris.normal;
+                         }
+                         return { ...card, id: c.id, image: iImg, imageBack: iImgBack };
+                    });
+                    setPrintsList(mapped);
+                } else { alert("Nessun'altra stampa trovata."); }
+                setLoadingPrints(false);
+            }).catch(e => { console.error(e); setLoadingPrints(false); });
+      };
 
       const translateCard = (card) => {
         if (card.isCustom) return alert("Le carte Proxy non possono essere tradotte dal database.");
@@ -856,10 +1020,13 @@
           .then(data => {
              if (data.data && data.data.length > 0) {
                  const itCard = data.data[0];
-                 let iImg = null;
-                 if (itCard.image_uris) iImg = itCard.image_uris.normal;
-                 else if (itCard.card_faces && itCard.card_faces[0].image_uris) iImg = itCard.card_faces[0].image_uris.normal;
-                 if (iImg) setItaImg(iImg);
+                 let iImg = null; let iImgBack = null;
+                 if (itCard.image_uris && itCard.image_uris.normal) { iImg = itCard.image_uris.normal; } 
+                 else if (itCard.card_faces && itCard.card_faces.length > 0) {
+                     if (itCard.card_faces[0].image_uris) iImg = itCard.card_faces[0].image_uris.normal;
+                     if (itCard.card_faces.length > 1 && itCard.card_faces[1].image_uris) iImgBack = itCard.card_faces[1].image_uris.normal;
+                 }
+                 if (iImg) { setItaImg(iImg); setItaImgBack(iImgBack); }
                  else alert("Immagine italiana non trovata.");
              } else { alert("Traduzione ufficiale italiana non stampata per questa carta."); }
              setTranslating(false);
@@ -870,19 +1037,43 @@
         <div className="max-w-2xl mx-auto relative z-10 w-full">
            {viewingCard && (
              <div className="w-full flex flex-col animate-fade pb-10">
-               <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-[70px] z-50 shadow-md mb-6">
+               <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md mb-6">
                  <button onClick={closeViewer} className="text-blue-400 font-bold flex items-center gap-1 text-lg"><Icons.Back /> Indietro</button>
                  <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">{viewingCard.name}</h2>
                  <div className="w-8"></div>
                </div>
                
                <div className="flex-1 flex flex-col items-center justify-start p-2">
-                 <img src={itaImg || viewingCard.proxyImage || viewingCard.image || "mtg-bg.jpg"} alt={viewingCard.name} className="w-auto max-h-[60vh] object-contain rounded-xl mb-6 shadow-2xl" />
-                 <div className="w-full max-w-sm mb-4">
-                    <button onClick={() => translateCard(viewingCard)} disabled={translating} className="w-full bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-[0_0_15px_rgba(67,56,202,0.4)] border border-indigo-500 transition-all">
-                      {translating ? "Traduco..." : "🇮🇹 Tenta Traduzione Italiana"}
+                 <img src={showBack && (itaImgBack || viewingCard.imageBack) ? (itaImgBack || viewingCard.imageBack) : (itaImg || viewingCard.proxyImage || viewingCard.image || "mtg-bg.jpg")} alt={viewingCard.name} className="w-auto max-h-[60vh] object-contain rounded-xl mb-4 shadow-2xl" />
+                 
+                 {(itaImgBack || viewingCard.imageBack) && !viewingCard.isCustom && (
+                    <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">
+                       🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}
                     </button>
+                 )}
+
+                 <div className="w-full max-w-sm mb-4 flex gap-2">
+                    <button onClick={() => translateCard(viewingCard)} disabled={translating} className="flex-1 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(67,56,202,0.4)] border border-indigo-500 transition-all text-xs">
+                      {translating ? "Traduco..." : "🇮🇹 Tenta Traduzione"}
+                    </button>
+                    {!viewingCard.isCustom && viewingCard.printsUrl && (
+                        <button onClick={() => fetchOtherPrints(viewingCard)} disabled={loadingPrints} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl shadow-lg border border-orange-500 transition-all text-xs">
+                          {loadingPrints ? "Cerco..." : "🖼️ Altre Stampe"}
+                        </button>
+                    )}
                  </div>
+
+                 {printsList.length > 0 && (
+                    <div className="w-full max-w-sm mb-4 bg-gray-800 p-2 rounded-xl border border-gray-600 shadow-md animate-fade">
+                       <p className="text-xs text-gray-300 font-bold mb-2">Questa è la modalità lettura. La stampa non verrà salvata nel mazzo.</p>
+                       <div className="flex overflow-x-auto gap-2 pb-2">
+                          {printsList.map(p => (
+                             <img key={p.id} src={p.image} className="w-20 rounded cursor-pointer border-2 border-transparent hover:border-blue-500 shadow-sm shrink-0" 
+                                  onClick={() => { setViewingCard({...viewingCard, image: p.image, imageBack: p.imageBack}); setPrintsList([]); }} />
+                          ))}
+                       </div>
+                    </div>
+                 )}
                </div>
              </div>
            )}
@@ -892,21 +1083,30 @@
              <div className="bg-gray-800/90 p-6 rounded-xl border border-gray-600 shadow-xl backdrop-blur-sm">
                 <h2 className="text-3xl font-black text-white mb-1 drop-shadow-md">{deck.name}</h2>
                 <p className="text-gray-300 font-bold mb-4">Clicca su una carta per ingrandirla e tradurla!</p>
-                <div className="space-y-2">
-                  {groupedDeck.map((card, index) => (
-                    <div key={index} className="flex gap-2 bg-gray-900 p-2 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800 transition-colors" onClick={() => openViewer(card)}>
-                      <div className="relative shrink-0">
-                          <img src={card.proxyImage || card.image || "mtg-bg.jpg"} alt={card.name} className="w-14 rounded object-cover shadow border border-gray-600" />
-                          <div className="absolute -top-2 -right-2 bg-blue-600 text-white font-black text-xs w-6 h-6 flex items-center justify-center rounded-full shadow border border-blue-400">
-                             {card.count}
-                          </div>
-                      </div>
-                      <div className="flex-1 text-sm flex flex-col justify-center overflow-hidden pl-2">
-                        <h4 className="font-bold text-gray-200 text-sm leading-tight truncate">{card.name}</h4>
-                        <p className="text-[10px] text-gray-500 truncate">{card.type}</p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  {categoriesOrder.map(cat => {
+                     const cardsInCat = groupedByCategory[cat];
+                     if(cardsInCat.length === 0) return null;
+                     return (
+                        <div key={cat} className="space-y-2">
+                           <h4 className="text-xs font-black text-gray-400 border-b border-gray-700 pb-1 uppercase">{cat} ({cardsInCat.reduce((acc,c)=>acc+c.count,0)})</h4>
+                           {cardsInCat.map((card, index) => (
+                             <div key={index} className="flex gap-2 bg-gray-900 p-2 rounded-lg border border-gray-700 cursor-pointer hover:bg-gray-800 transition-colors" onClick={() => openViewer(card)}>
+                               <div className="relative shrink-0">
+                                   <img src={card.proxyImage || card.image || "mtg-bg.jpg"} alt={card.name} className="w-14 rounded object-cover shadow border border-gray-600" />
+                                   <div className="absolute -top-2 -right-2 bg-blue-600 text-white font-black text-xs w-6 h-6 flex items-center justify-center rounded-full shadow border border-blue-400">
+                                      {card.count}
+                                   </div>
+                               </div>
+                               <div className="flex-1 text-sm flex flex-col justify-center overflow-hidden pl-2">
+                                 <h4 className="font-bold text-gray-200 text-sm leading-tight truncate">{card.name}</h4>
+                                 <p className="text-[10px] text-gray-500 truncate">{card.type}</p>
+                               </div>
+                             </div>
+                           ))}
+                        </div>
+                     )
+                  })}
                 </div>
              </div>
            </div>
@@ -914,7 +1114,7 @@
       );
     };
 
-    // --- I MIEI MAZZI, ANALISI E STAMPA ---
+    // --- I MIEI MAZZI E ANALISI ---
     const MyDecks = ({navigate}) => {
       const [decks, setDecks] = useState([]);
       useEffect(() => { setDecks(JSON.parse(localStorage.getItem('mtg_decks') || '[]')); }, []);
@@ -952,7 +1152,7 @@
                  </div>
                  <div className="p-3 bg-gray-900 grid grid-cols-2 gap-2 text-sm font-bold">
                    <button onClick={() => navigate('viewdeck', d)} className="col-span-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded py-3 shadow text-base transition-colors">👁️ Visualizza & Traduci 🇮🇹</button>
-                   <button onClick={() => navigate('analysis', d)} className="col-span-2 bg-blue-600 hover:bg-blue-500 text-white rounded py-3 shadow text-base transition-colors">📊 Analisi & Master IA</button>
+                   <button onClick={() => navigate('analysis', d)} className="col-span-2 bg-blue-600 hover:bg-blue-500 text-white rounded py-3 shadow text-base transition-colors">📊 Analisi & Condividi 📲</button>
                    <button onClick={() => navigate('deckbuilder', d)} className="bg-gray-700 hover:bg-gray-600 text-white rounded py-2 shadow transition-colors">Modifica</button>
                    <button onClick={() => navigate('printview', d)} className="bg-purple-600 hover:bg-purple-500 text-white rounded py-2 shadow transition-colors">Stampa PDF</button>
                    <button onClick={() => exportText(d)} className="bg-gray-700 hover:bg-gray-600 text-white rounded py-2 shadow transition-colors">Esporta Testo</button>
@@ -966,6 +1166,8 @@
     };
 
     const DeckAnalysis = ({deck, navigate}) => {
+      const [showQR, setShowQR] = useState(false);
+
       if(!deck) return null;
 
       const cmds = deck.cards.filter(c => c.isCommander);
@@ -1000,15 +1202,73 @@
          window.open(`https://edhrec.com/commanders/${formatEdhrec(cmds[0].name)}`, '_blank');
       };
 
+      const listText = deck.cards.map(c => `1 ${c.name}`).join('\n');
+
       const copyPrompt = () => {
-         const list = deck.cards.map(c => `1 ${c.name}`).join('\n');
          const prompt = `Agisci come un Master professionista e Deckbuilder esperto di Magic: The Gathering.
 Formato: ${deck.format || 'Commander'}. ${deck.format==='commander'? `Comandante: ${cmdName}.`:''}
 Analizza curva di mana, banlist e dammi consigli su cosa tagliare e aggiungere.
 Lista:
-${list}`;
+${listText}`;
          navigator.clipboard.writeText(prompt);
          alert("Prompt copiato! Incollalo su ChatGPT o Gemini.");
+      };
+
+      const copyList = () => {
+         navigator.clipboard.writeText(listText);
+         alert("Lista carte copiata!");
+      };
+
+      const shareDeck = async () => {
+         const shareData = { title: `Mazzo MTG: ${deck.name}`, text: `Ecco il mio mazzo "${deck.name}":\n\n${listText}`, };
+         if (navigator.share) {
+            try { await navigator.share(shareData); } catch(e) {}
+         } else {
+            copyList(); alert("Copiato negli appunti! Ora puoi incollarlo dove vuoi.");
+         }
+      };
+
+      const generateQR = () => {
+         if(window.QRCode) {
+            window.QRCode.toDataURL(listText, { errorCorrectionLevel: 'L', width: 250, margin: 2 }, function (err, url) {
+               if (err) {
+                  alert("Errore: la lista è troppo lunga per un singolo QR code! Prova a condividerla via WhatsApp.");
+                  console.error(err);
+               } else {
+                  const img = new Image();
+                  img.src = url;
+                  img.className = "mb-4 border-4 border-gray-200 rounded";
+                  
+                  const modal = document.createElement("div");
+                  modal.className = "fixed inset-0 bg-black/95 z-[9999] flex flex-col items-center justify-center p-4 animate-fade";
+                  modal.onclick = () => document.body.removeChild(modal);
+                  
+                  const container = document.createElement("div");
+                  container.className = "bg-white p-6 rounded-xl flex flex-col items-center shadow-2xl";
+                  container.onclick = (e) => e.stopPropagation();
+                  
+                  const title = document.createElement("h3");
+                  title.className = "text-black font-black text-xl mb-2 text-center";
+                  title.innerText = "QR Code Mazzo";
+                  
+                  const sub = document.createElement("p");
+                  sub.className = "text-gray-600 text-xs mb-4 text-center font-bold";
+                  sub.innerText = "Fai inquadrare questo codice dalla fotocamera di un amico. Copierà la lista in automatico!";
+                  
+                  const btn = document.createElement("button");
+                  btn.className = "w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-md";
+                  btn.innerText = "Chiudi";
+                  btn.onclick = () => document.body.removeChild(modal);
+                  
+                  container.appendChild(title);
+                  container.appendChild(sub);
+                  container.appendChild(img);
+                  container.appendChild(btn);
+                  modal.appendChild(container);
+                  document.body.appendChild(modal);
+               }
+            });
+         } else { alert("Libreria QR non caricata."); }
       };
 
       return (
@@ -1022,7 +1282,7 @@ ${list}`;
              <div className="grid grid-cols-3 gap-2 mb-6 text-center">
                <div className="bg-gray-900 p-2 rounded-lg border border-gray-700 shadow-inner">
                   <p className="text-xs text-gray-400 font-bold uppercase">Carte</p>
-                  <p className={`text-2xl font-black text-white`}>{totalCards}</p>
+                  <p className={`text-2xl font-black ${totalCards===100 ? 'text-green-400':'text-red-400'}`}>{totalCards}</p>
                </div>
                <div className="bg-gray-900 p-2 rounded-lg border border-gray-700 shadow-inner">
                   <p className="text-xs text-gray-400 font-bold uppercase">Terre</p>
@@ -1074,13 +1334,26 @@ ${list}`;
              </div>
 
              <div className="space-y-3">
+               <button onClick={shareDeck} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-[0_0_10px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 transition-all">
+                 📲 Invia ad un Amico (WhatsApp / Social)
+               </button>
+               
+               <button onClick={generateQR} className="w-full bg-gray-100 hover:bg-white text-black font-bold py-4 rounded-xl shadow-[0_0_10px_rgba(255,255,255,0.4)] flex items-center justify-center gap-2 transition-all">
+                 🔲 Mostra QR Code Mazzo
+               </button>
+
                {deck.format === 'commander' && (
-                 <button onClick={openEdhrec} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
+                 <button onClick={openEdhrec} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all mt-6">
                    🛡️ Sinergie su EDHREC
                  </button>
                )}
-               <button onClick={copyPrompt} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
+               
+               <button onClick={copyPrompt} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
                  🤖 Copia Prompt IA (Gemini/ChatGPT)
+               </button>
+               
+               <button onClick={copyList} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl shadow border border-gray-600 flex items-center justify-center gap-2 transition-colors">
+                 📋 Copia solo Lista Testuale
                </button>
              </div>
            </div>
@@ -1100,13 +1373,18 @@ ${list}`;
             </div>
           </div>
           <div className="print-grid">
-            {deck.cards.map((c, i) => <img key={i} src={c.proxyImage || c.image || "mtg-bg.jpg"} className="print-card shadow-sm border border-gray-300" />)}
+            {deck.cards.map((c, i) => (
+              <React.Fragment key={i}>
+                <img src={c.proxyImage || c.image || "mtg-bg.jpg"} className="print-card shadow-sm border border-gray-300" />
+                {c.imageBack && !c.isCustom && <img src={c.imageBack} className="print-card shadow-sm border border-gray-300" />}
+              </React.Fragment>
+            ))}
           </div>
         </div>
       );
     };
 
-    // --- GAME UTILITY ---
+    // --- GAME UTILITY (LIFE TRACKER E MANA POOL) ---
     const GameUtility = ({view, setView}) => {
       const [setup, setSetup] = useState(true);
       const [numPlayers, setNumPlayers] = useState(4);
@@ -1176,7 +1454,7 @@ ${list}`;
 
       return (
         <div className="fixed inset-0 z-[100] bg-black p-1 flex flex-col h-[100dvh] w-[100dvw]">
-          <button onClick={() => setView('game')} className="absolute top-2 left-2 z-[110] bg-black/80 px-3 py-2 rounded-full text-white text-xs border border-white/20 font-bold shadow-lg">✖ Esci / Setup</button>
+          <button onClick={() => setView('game')} className="absolute top-2 left-2 z-[110] bg-black/80 px-3 py-2 rounded-full text-white text-xs border border-white/20 font-bold shadow-lg">✖ Esci</button>
           <div className={`flex-1 grid ${gridClass} gap-1 h-full w-full pt-12`}>
              {players.map(p => <PlayerCard key={p.id} player={p} updateStat={updateStat} updateMana={updateMana} toggleImmunity={toggleImmunity} opponents={players.filter(op => op.id !== p.id)} updatePlayerConfig={updatePlayerConfig} />)}
           </div>
@@ -1187,6 +1465,8 @@ ${list}`;
     const PlayerCard = ({ player, updateStat, updateMana, toggleImmunity, opponents, updatePlayerConfig }) => {
       const [viewMode, setViewMode] = useState('life'); 
       const [cmdQuery, setCmdQuery] = useState("");
+      const [isEditingName, setIsEditingName] = useState(false);
+      const [tempName, setTempName] = useState(player.name);
       
       let isDead = false;
       if (!player.immune) {
@@ -1208,10 +1488,20 @@ ${list}`;
             }).catch(e => console.error(e));
       };
 
+      const saveName = () => {
+         setIsEditingName(false);
+         if(tempName.trim() !== "") updatePlayerConfig(player.id, 'name', tempName.trim());
+         else setTempName(player.name);
+      };
+
       const PlayerHeader = () => (
          <div className="flex justify-between items-center bg-black/60 backdrop-blur-sm p-2 z-30 border-b border-gray-700 shadow-sm h-[15%] min-h-[30px]">
             <div className="flex items-center gap-2 overflow-hidden flex-1">
-               <span className="font-bold text-white text-sm drop-shadow-md truncate">{player.name}</span>
+               {isEditingName ? (
+                  <input autoFocus type="text" value={tempName} onChange={e => setTempName(e.target.value)} onBlur={saveName} onKeyDown={e => e.key === 'Enter' && saveName()} className="bg-gray-700 text-white text-xs px-1 py-0.5 rounded outline-none w-24 border border-gray-500" />
+               ) : (
+                  <span onClick={() => setIsEditingName(true)} className="font-bold text-white text-sm drop-shadow-md truncate cursor-pointer">{player.name} ✎</span>
+               )}
                {player.poison > 0 && <span className="text-green-400 text-[11px] font-black drop-shadow-md whitespace-nowrap">💧{player.poison}</span>}
                {player.emblems > 0 && <span className="text-purple-400 text-[11px] font-black drop-shadow-md whitespace-nowrap">🛡️{player.emblems}</span>}
             </div>
@@ -1277,7 +1567,7 @@ ${list}`;
 
       return (
         <div className={`w-full h-full flex flex-col rounded-xl border-2 relative ${isDead ? 'border-red-600 bg-red-950/90' : 'border-gray-600 bg-gray-900/90'} overflow-hidden shadow-2xl`}>
-          {player.bgUrl && <img src={player.bgUrl} className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-luminosity pointer-events-none" />}
+          {player.bgUrl && <img src={player.bgUrl} className="absolute inset-0 w-full h-full object-contain p-2 opacity-40 mix-blend-luminosity pointer-events-none" />}
           {isDead && <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-40 pointer-events-none z-20">💀</div>}
           {player.immune && <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-30 pointer-events-none text-blue-500 drop-shadow-lg z-20">🛡️</div>}
           
@@ -1303,7 +1593,6 @@ ${list}`;
       </div>
     );
 
-    // --- DICE ROLLER ---
     const DiceRoller = () => {
       const [numPlayers, setNumPlayers] = useState(4);
       const [results, setResults] = useState([]);
@@ -1343,7 +1632,6 @@ ${list}`;
       );
     };
 
-    // --- JUDGE DESK ---
     const RulesAI = () => {
       const [question, setQuestion] = useState("");
       const searchRuling = () => { if(question) window.open(`https://www.google.com/search?q=MTG+Ruling+${encodeURIComponent(question)}`, '_blank'); };
