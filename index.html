@@ -39,7 +39,7 @@
 
     const Icons = {
       Menu: () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"/></svg>,
-      Home: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 001 1m-6 0h6"/></svg>,
+      Home: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>,
       Back: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
     };
 
@@ -52,10 +52,9 @@
       { id: 'C', color: 'bg-gray-400 text-gray-900', label: 'C' }
     ];
 
-    // FUNZIONE PER ORDINAMENTO CARTE NEL MAZZO
     const getCardCategory = (card) => {
         if (card.isSideboard) return "Sideboard";
-        if (card.isCompanion || card.isCompFlag) return "Companion";
+        if (card.isCompanion || card.isCompFlag) return "Companion"; 
         if (card.isCmdrFlag || card.isCommander) return "Comandante";
         const t = (card.type || "").toLowerCase();
         if (t.includes("creature")) return "Creature";
@@ -69,10 +68,11 @@
     };
     const categoriesOrder = ["Comandante", "Companion", "Creature", "Planeswalker", "Istantanei", "Stregonerie", "Artefatti", "Incantesimi", "Terre", "Altro", "Sideboard"];
 
+    const buildCardKey = (c) => c.name + (c.isCustom ? c.proxyImage : "") + c.id + !!c.isSideboard + !!c.isCommander + !!c.isCompanion;
+
     function App() {
       const [introState, setIntroState] = useState('initial'); 
       const videoRef = useRef(null);
-
       const [view, setView] = useState('home');
       const [menuOpen, setMenuOpen] = useState(false);
       const [activeDeck, setActiveDeck] = useState(null); 
@@ -84,10 +84,8 @@
             if (!leave) { window.history.pushState(null, null, window.location.href); }
         };
         const handleBeforeUnload = (e) => { e.returnValue = "Vuoi uscire dall'app?"; };
-        
         window.addEventListener("popstate", handlePopState);
         window.addEventListener("beforeunload", handleBeforeUnload);
-        
         return () => {
            window.removeEventListener("popstate", handlePopState);
            window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -119,7 +117,6 @@
                 <video ref={videoRef} playsInline onEnded={finishIntro} onError={finishIntro} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${introState === 'playing' ? 'opacity-100 z-10' : 'opacity-0 z-[-1]'}`}>
                    <source src="intro.mp4" type="video/mp4" />
                 </video>
-
                 {introState === 'initial' && (
                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 animate-fade z-20">
                       <img src="mtg-bg.jpg" className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none" />
@@ -128,7 +125,6 @@
                       <button onClick={finishIntro} className="relative z-10 mt-8 text-gray-400 font-bold underline px-6 py-2">Skip Intro</button>
                    </div>
                 )}
-                
                 {introState === 'playing' && (
                    <button onClick={finishIntro} className="absolute top-8 right-6 z-[210] bg-black/60 text-white px-4 py-2 rounded-full font-bold border border-white/30 shadow-lg backdrop-blur-sm active:scale-95 animate-fade">Skip ⏭</button>
                 )}
@@ -137,7 +133,6 @@
 
           {introState === 'finished' && (
             <div className="min-h-screen bg-gray-900/85 backdrop-blur-sm flex flex-col animate-fade">
-              
               {(view !== 'game_active' && view !== 'playtester_active') && (
                 <header className="bg-gray-900/95 border-b border-gray-700 p-4 flex justify-between items-center fixed top-0 w-full z-50 shadow-md no-print">
                   <button onClick={() => setMenuOpen(true)} className="text-gray-300 hover:text-white"><Icons.Menu /></button>
@@ -159,11 +154,9 @@
                       <MenuBtn icon="⚔️" text="Life Tracker" onClick={() => navigate('game')} />
                       <MenuBtn icon="🎲" text="Lancia Dado" onClick={() => navigate('dice')} />
                       <MenuBtn icon="⚖️" text="Regole & Judge" onClick={() => navigate('rules')} />
-                      
                       <div className="pt-4 mt-4 border-t border-gray-700">
                          <MenuBtn icon="💾" text="Backup & Sync" onClick={() => navigate('backup')} />
                       </div>
-
                       <div className="pt-2 mt-2 border-t border-gray-700">
                          <p className="text-xs text-gray-500 font-bold mb-3 uppercase tracking-wider">🌐 Import / Siti Esterni</p>
                          <MenuBtn icon="M" text="Moxfield" onClick={() => window.open('https://www.moxfield.com', '_blank')} />
@@ -256,16 +249,8 @@
           }
 
           setGameState({
-             deckName: d.name,
-             isCommander: d.format === 'commander',
-             mulliganCount: 0,
-             turn: 1,
-             library: initialLibrary,
-             hand: [],
-             battlefield: [],
-             graveyard: [],
-             exile: [],
-             commandZone: initialCmdZone
+             deckName: d.name, isCommander: d.format === 'commander', mulliganCount: 0, turn: 1,
+             library: initialLibrary, hand: [], battlefield: [], graveyard: [], exile: [], commandZone: initialCmdZone
           });
 
           setView('playtester_active');
@@ -273,66 +258,37 @@
        };
 
        const doDraw = (amount, currentLib, currentHand) => {
-          let newLib = [...currentLib];
-          let newHand = [...currentHand];
-          for(let i=0; i<amount; i++) {
-             if(newLib.length > 0) newHand.push(newLib.shift());
-          }
+          let newLib = [...currentLib]; let newHand = [...currentHand];
+          for(let i=0; i<amount; i++) { if(newLib.length > 0) newHand.push(newLib.shift()); }
           setGameState(prev => ({...prev, library: newLib, hand: newHand}));
        };
 
-       const drawOne = () => {
-          if(!gameState || gameState.library.length === 0) return;
-          doDraw(1, gameState.library, gameState.hand);
-       };
+       const drawOne = () => { if(!gameState || gameState.library.length === 0) return; doDraw(1, gameState.library, gameState.hand); };
 
        const passTurn = () => {
           if(!gameState) return;
-          setGameState(prev => ({
-             ...prev, 
-             turn: prev.turn + 1,
-             battlefield: prev.battlefield.map(c => ({...c, isTapped: false}))
-          }));
+          setGameState(prev => ({ ...prev, turn: prev.turn + 1, battlefield: prev.battlefield.map(c => ({...c, isTapped: false})) }));
           drawOne();
        };
 
        const mulligan = () => {
           if(!gameState) return;
           let allCards = [...gameState.library, ...gameState.hand, ...gameState.battlefield, ...gameState.graveyard, ...gameState.exile];
-          
-          for (let i = allCards.length - 1; i > 0; i--) {
-             const j = Math.floor(Math.random() * (i + 1));
-             [allCards[i], allCards[j]] = [allCards[j], allCards[i]];
-          }
-
+          for (let i = allCards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [allCards[i], allCards[j]] = [allCards[j], allCards[i]]; }
           let newMull = gameState.mulliganCount + 1;
-          let cardsToBottom = 0;
-          if (gameState.isCommander) {
-              cardsToBottom = newMull > 1 ? newMull - 1 : 0;
-          } else {
-              cardsToBottom = newMull;
-          }
+          let cardsToBottom = gameState.isCommander ? (newMull > 1 ? newMull - 1 : 0) : newMull;
 
-          setGameState(prev => ({
-             ...prev,
-             mulliganCount: newMull,
-             library: allCards,
-             hand: [], battlefield: [], graveyard: [], exile: []
-          }));
-
+          setGameState(prev => ({ ...prev, mulliganCount: newMull, library: allCards, hand: [], battlefield: [], graveyard: [], exile: [] }));
           setTimeout(() => {
              doDraw(7, allCards, []);
-             if(cardsToBottom > 0) alert(`Mulligan a 7 effettuato. Metti ${cardsToBottom} carte in fondo al mazzo! (Tocca la carta in Mano -> Fondo Mazzo)`);
+             if(cardsToBottom > 0) alert(`Mulligan a 7 effettuato. Metti ${cardsToBottom} carte in fondo al mazzo!`);
           }, 100);
        };
 
        const shuffleLibrary = () => {
           if(!gameState) return;
           let lib = [...gameState.library];
-          for (let i = lib.length - 1; i > 0; i--) {
-             const j = Math.floor(Math.random() * (i + 1));
-             [lib[i], lib[j]] = [lib[j], lib[i]];
-          }
+          for (let i = lib.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lib[i], lib[j]] = [lib[j], lib[i]]; }
           setGameState(prev => ({...prev, library: lib}));
           alert("Mazzo mischiato!");
        };
@@ -340,41 +296,26 @@
        const moveCard = (uid, sourceZone, destZone) => {
           if(!gameState) return;
           let cardToMove = null;
-          let newSource = gameState[sourceZone].filter(c => {
-             if(c.uid === uid) { cardToMove = c; return false; }
-             return true;
-          });
-          
-          if(!cardToMove) return;
-          cardToMove.isTapped = false;
-
+          let newSource = gameState[sourceZone].filter(c => { if(c.uid === uid) { cardToMove = c; return false; } return true; });
+          if(!cardToMove) return; cardToMove.isTapped = false;
           let newGameState = { ...gameState, [sourceZone]: newSource };
 
           if(destZone === 'libraryBottom') {
              let lib = sourceZone === 'library' ? [...newSource] : [...gameState.library];
-             lib.push(cardToMove);
-             newGameState.library = lib;
+             lib.push(cardToMove); newGameState.library = lib;
           } else if(destZone === 'libraryTop') {
              let lib = sourceZone === 'library' ? [...newSource] : [...gameState.library];
-             lib.unshift(cardToMove);
-             newGameState.library = lib;
+             lib.unshift(cardToMove); newGameState.library = lib;
           } else {
              let newDest = sourceZone === destZone ? [...newSource] : [...gameState[destZone]];
-             newDest.push(cardToMove);
-             newGameState[destZone] = newDest;
+             newDest.push(cardToMove); newGameState[destZone] = newDest;
           }
-          
-          setGameState(newGameState);
-          setShowCardModal(null);
-          setBrowsingZone(null);
+          setGameState(newGameState); setShowCardModal(null); setBrowsingZone(null);
        };
 
        const toggleTap = (uid) => {
           if(!gameState) return;
-          setGameState(prev => ({
-             ...prev,
-             battlefield: prev.battlefield.map(c => c.uid === uid ? {...c, isTapped: !c.isTapped} : c)
-          }));
+          setGameState(prev => ({ ...prev, battlefield: prev.battlefield.map(c => c.uid === uid ? {...c, isTapped: !c.isTapped} : c) }));
        };
 
        if(view === 'playtester') {
@@ -382,14 +323,10 @@
              <div className="max-w-md mx-auto bg-gray-800/90 p-6 rounded-xl shadow-lg border border-gray-600 mt-4 backdrop-blur-sm space-y-6 animate-fade">
                <h2 className="text-3xl font-black text-center text-blue-400 drop-shadow-md">Tavolo Virtuale</h2>
                <p className="text-xs text-center text-gray-300 font-bold mb-4 bg-gray-900 p-2 rounded border border-gray-700">📱 Sandbox manuale per pescare le mani iniziali e testare le aperture del mazzo.</p>
-               
-               {decks.length === 0 ? (
-                  <p className="text-red-400 font-bold text-center">Nessun mazzo salvato.</p>
-               ) : (
+               {decks.length === 0 ? ( <p className="text-red-400 font-bold text-center">Nessun mazzo salvato.</p> ) : (
                   <div className="space-y-4">
                      <select value={selectedDeckId} onChange={e => setSelectedDeckId(e.target.value)} className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white font-bold outline-none">
-                        <option value="">Seleziona un Mazzo...</option>
-                        {decks.map(d => <option key={d.id} value={d.id}>{d.name} ({d.format})</option>)}
+                        <option value="">Seleziona un Mazzo...</option>{decks.map(d => <option key={d.id} value={d.id}>{d.name} ({d.format})</option>)}
                      </select>
                      <button onClick={startPlaytest} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.5)] transition-all">AVVIA SIMULATORE</button>
                   </div>
@@ -402,128 +339,86 @@
 
        return (
           <div className="fixed inset-0 z-[200] bg-green-900 flex flex-col h-[100dvh] w-full animate-fade">
-             
              {browsingZone && (
                 <div className="fixed inset-0 bg-gray-900 z-[250] flex flex-col animate-fade pb-10">
                    <div className="flex justify-between items-center p-4 bg-gray-800 border-b border-gray-700 shadow-md">
                       <h2 className="text-xl font-bold text-white uppercase">{browsingZone === 'library' ? 'Mazzo' : (browsingZone === 'graveyard' ? 'Cimitero' : 'Esilio')} ({gameState[browsingZone].length})</h2>
                       <div className="flex gap-2">
-                         {browsingZone === 'library' && (
-                            <button onClick={shuffleLibrary} className="bg-blue-600 px-3 py-1 rounded text-white font-bold text-sm shadow">Mischia</button>
-                         )}
+                         {browsingZone === 'library' && ( <button onClick={shuffleLibrary} className="bg-blue-600 px-3 py-1 rounded text-white font-bold text-sm shadow">Mischia</button> )}
                          <button onClick={() => setBrowsingZone(null)} className="bg-red-600 px-3 py-1 rounded text-white font-bold shadow">Chiudi</button>
                       </div>
                    </div>
                    <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 gap-3 content-start">
                       {gameState[browsingZone].map(c => (
-                         <img 
-                            key={c.uid} 
-                            src={c.proxyImage || c.image || "mtg-bg.jpg"} 
-                            onClick={() => setShowCardModal({card: c, zone: browsingZone})} 
-                            className="w-full rounded shadow-lg cursor-pointer border border-gray-600 active:scale-95 transition-transform" 
-                         />
+                         <img key={c.uid} src={c.proxyImage || c.image || "mtg-bg.jpg"} onClick={() => setShowCardModal({card: c, zone: browsingZone})} className="w-full rounded shadow-lg cursor-pointer border border-gray-600 active:scale-95 transition-transform" />
                       ))}
-                      {gameState[browsingZone].length === 0 && <p className="col-span-3 text-center text-gray-500 font-bold mt-10">Nessuna carta qui.</p>}
                    </div>
                 </div>
              )}
-
              {showCardModal && (
                 <div className="fixed inset-0 bg-black/90 z-[300] flex flex-col items-center justify-center p-4 animate-fade" onClick={() => setShowCardModal(null)}>
                    <div onClick={e => e.stopPropagation()} className="w-full max-w-sm flex flex-col items-center">
                       <img src={showCardModal.card.proxyImage || showCardModal.card.image || "mtg-bg.jpg"} className="w-auto h-[45vh] rounded-xl shadow-2xl mb-6 border border-gray-600" />
-                      
                       <div className="grid grid-cols-2 gap-2 w-full bg-gray-900 p-4 rounded-xl border border-gray-700">
-                         {showCardModal.zone === 'hand' && (
-                            <button onClick={() => moveCard(showCardModal.card.uid, 'hand', 'battlefield')} className="col-span-2 bg-green-600 text-white font-bold py-3 rounded shadow">👇 Gioca sul Campo</button>
-                         )}
-                         {showCardModal.zone === 'commandZone' && (
-                            <button onClick={() => moveCard(showCardModal.card.uid, 'commandZone', 'battlefield')} className="col-span-2 bg-yellow-600 text-white font-bold py-3 rounded shadow">👇 Lancia da Cmd Zone</button>
-                         )}
-                         {showCardModal.zone === 'battlefield' && (
-                            <button onClick={() => moveCard(showCardModal.card.uid, 'battlefield', 'hand')} className="col-span-2 bg-blue-600 text-white font-bold py-3 rounded shadow">👆 Riprendi in Mano</button>
-                         )}
+                         {showCardModal.zone === 'hand' && ( <button onClick={() => moveCard(showCardModal.card.uid, 'hand', 'battlefield')} className="col-span-2 bg-green-600 text-white font-bold py-3 rounded shadow">👇 Gioca sul Campo</button> )}
+                         {showCardModal.zone === 'commandZone' && ( <button onClick={() => moveCard(showCardModal.card.uid, 'commandZone', 'battlefield')} className="col-span-2 bg-yellow-600 text-white font-bold py-3 rounded shadow">👇 Lancia da Cmd Zone</button> )}
+                         {showCardModal.zone === 'battlefield' && ( <button onClick={() => moveCard(showCardModal.card.uid, 'battlefield', 'hand')} className="col-span-2 bg-blue-600 text-white font-bold py-3 rounded shadow">👆 Riprendi in Mano</button> )}
                          {(showCardModal.zone === 'graveyard' || showCardModal.zone === 'exile' || showCardModal.zone === 'library') && (
                             <React.Fragment>
-                               <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'hand')} className="bg-blue-600 text-white font-bold py-3 rounded text-sm shadow">🖐 Metti in Mano</button>
-                               <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'battlefield')} className="bg-green-600 text-white font-bold py-3 rounded text-sm shadow">👇 Gioca Campo</button>
+                               <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'hand')} className="bg-blue-600 text-white font-bold py-3 rounded text-sm shadow">🖐 Mano</button>
+                               <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'battlefield')} className="bg-green-600 text-white font-bold py-3 rounded text-sm shadow">👇 Campo</button>
                             </React.Fragment>
                          )}
-                         
                          <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'graveyard')} className="bg-gray-600 text-white font-bold py-2 rounded text-xs">💀 Cimitero</button>
                          <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'exile')} className="bg-gray-400 text-black font-bold py-2 rounded text-xs">🌌 Esilio</button>
                          <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'libraryTop')} className="bg-indigo-700 text-white font-bold py-2 rounded text-xs">Cima Mazzo</button>
                          <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'libraryBottom')} className="bg-indigo-900 text-white font-bold py-2 rounded text-xs">Fondo Mazzo</button>
-                         
                          <button onClick={() => setShowCardModal(null)} className="col-span-2 bg-red-600 text-white font-bold py-2 rounded mt-2 shadow">❌ Annulla</button>
                       </div>
                    </div>
                 </div>
              )}
-
              <div className="bg-black/80 text-white p-2 flex justify-between items-center border-b border-green-700 shadow-md h-[10dvh]">
                 <button onClick={() => setView('playtester')} className="bg-red-600 px-3 py-1 rounded font-bold text-xs shadow">Esci</button>
-                <div className="text-center">
-                   <h3 className="font-black text-sm uppercase text-yellow-500">Turno {gameState.turn}</h3>
-                </div>
+                <div className="text-center"><h3 className="font-black text-sm uppercase text-yellow-500">Turno {gameState.turn}</h3></div>
                 <div className="flex gap-1">
                    <button onClick={mulligan} className="bg-orange-600 px-2 py-1 rounded font-bold text-xs shadow">Mulligan</button>
                    <button onClick={passTurn} className="bg-blue-600 px-2 py-1 rounded font-bold text-xs shadow">Passa Turno</button>
                 </div>
              </div>
-
              <div className="bg-black/50 p-2 flex justify-between items-center h-[12dvh] overflow-x-auto gap-2">
                 <div className="flex gap-2 border-r border-green-800 pr-2 h-full items-center">
-                   {gameState.commandZone.map(c => (
-                      <img key={c.uid} src={c.proxyImage || c.image || "mtg-bg.jpg"} onClick={() => setShowCardModal({card: c, zone: 'commandZone'})} className="h-full rounded border border-yellow-500 shadow-lg cursor-pointer" />
-                   ))}
+                   {gameState.commandZone.map(c => ( <img key={c.uid} src={c.proxyImage || c.image || "mtg-bg.jpg"} onClick={() => setShowCardModal({card: c, zone: 'commandZone'})} className="h-full rounded border border-yellow-500 shadow-lg cursor-pointer" /> ))}
                 </div>
                 <div className="flex gap-2 pl-1 overflow-x-auto h-full items-center">
-                   <button onClick={drawOne} className="h-full bg-indigo-900/80 rounded border border-indigo-500 flex items-center justify-center px-3 font-black shadow active:scale-95 transition-transform shrink-0">
-                      PESCA
-                   </button>
-                   <div className="h-full bg-blue-900 rounded border border-blue-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg active:scale-95 transition-transform" onClick={() => setBrowsingZone('library')}>
-                      <span className="text-[10px] font-bold text-blue-300">Mazzo</span>
-                      <span className="font-black text-white">{gameState.library.length}</span>
+                   <button onClick={drawOne} className="h-full bg-indigo-900/80 rounded border border-indigo-500 flex items-center justify-center px-3 font-black shadow active:scale-95 transition-transform shrink-0">PESCA</button>
+                   <div className="h-full bg-blue-900 rounded border border-blue-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg" onClick={() => setBrowsingZone('library')}>
+                      <span className="text-[10px] font-bold text-blue-300">Mazzo</span><span className="font-black text-white">{gameState.library.length}</span>
                    </div>
-                   <div className="h-full bg-gray-800 rounded border border-gray-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg active:scale-95 transition-transform" onClick={() => setBrowsingZone('graveyard')}>
-                      <span className="text-[10px] font-bold text-gray-400">Cimitero</span>
-                      <span className="font-black text-white">{gameState.graveyard.length}</span>
+                   <div className="h-full bg-gray-800 rounded border border-gray-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg" onClick={() => setBrowsingZone('graveyard')}>
+                      <span className="text-[10px] font-bold text-gray-400">Cimitero</span><span className="font-black text-white">{gameState.graveyard.length}</span>
                    </div>
                    {gameState.exile.length > 0 && (
-                     <div className="h-full bg-gray-300 rounded border border-gray-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg active:scale-95 transition-transform" onClick={() => setBrowsingZone('exile')}>
-                        <span className="text-[10px] font-bold text-gray-700">Esilio</span>
-                        <span className="font-black text-black">{gameState.exile.length}</span>
+                     <div className="h-full bg-gray-300 rounded border border-gray-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg" onClick={() => setBrowsingZone('exile')}>
+                        <span className="text-[10px] font-bold text-gray-700">Esilio</span><span className="font-black text-black">{gameState.exile.length}</span>
                      </div>
                    )}
                 </div>
              </div>
-
              <div className="flex-1 bg-green-900/50 p-2 overflow-y-auto relative shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
                 {gameState.battlefield.length === 0 && <div className="absolute inset-0 flex items-center justify-center text-green-700/50 font-black text-2xl uppercase pointer-events-none">Tavolo di Gioco</div>}
                 <div className="flex flex-wrap gap-3 content-start">
                    {gameState.battlefield.map(c => (
                       <div key={c.uid} className="relative w-20 sm:w-24">
-                         <img 
-                            src={c.proxyImage || c.image || "mtg-bg.jpg"} 
-                            onClick={() => toggleTap(c.uid)}
-                            className={`w-full rounded shadow-md cursor-pointer transition-transform duration-200 border border-black ${c.isTapped ? 'rotate-90 opacity-80' : 'rotate-0'}`} 
-                         />
+                         <img src={c.proxyImage || c.image || "mtg-bg.jpg"} onClick={() => toggleTap(c.uid)} className={`w-full rounded shadow-md cursor-pointer transition-transform duration-200 border border-black ${c.isTapped ? 'rotate-90 opacity-80' : 'rotate-0'}`} />
                          <button onClick={(e) => { e.stopPropagation(); setShowCardModal({card: c, zone: 'battlefield'}) }} className="absolute -top-2 -right-2 bg-black/80 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-bold border border-gray-500 shadow">⚙️</button>
                       </div>
                    ))}
                 </div>
              </div>
-
              <div className="h-[25dvh] bg-black/90 p-2 overflow-x-auto flex items-end gap-[-20px] pb-4 shadow-[0_-5px_15px_rgba(0,0,0,0.5)] z-10 pl-4">
                 {gameState.hand.map((c, i) => (
-                   <img 
-                      key={c.uid} 
-                      src={c.proxyImage || c.image || "mtg-bg.jpg"} 
-                      onClick={() => setShowCardModal({card: c, zone: 'hand'})}
-                      className="h-full rounded-lg shadow-xl cursor-pointer hover:-translate-y-4 hover:z-20 transition-all border border-gray-700" 
-                      style={{ marginLeft: i === 0 ? '0' : '-30px', transformOrigin: 'bottom center' }}
-                   />
+                   <img key={c.uid} src={c.proxyImage || c.image || "mtg-bg.jpg"} onClick={() => setShowCardModal({card: c, zone: 'hand'})} className="h-full rounded-lg shadow-xl cursor-pointer hover:-translate-y-4 hover:z-20 transition-all border border-gray-700" style={{ marginLeft: i === 0 ? '0' : '-30px', transformOrigin: 'bottom center' }} />
                 ))}
              </div>
           </div>
@@ -532,55 +427,32 @@
 
     const BackupView = ({navigate}) => {
       const exportData = () => {
-         const data = {
-             decks: JSON.parse(localStorage.getItem('mtg_decks') || '[]'),
-             proxies: JSON.parse(localStorage.getItem('mtg_proxies') || '[]')
-         };
+         const data = { decks: JSON.parse(localStorage.getItem('mtg_decks') || '[]'), proxies: JSON.parse(localStorage.getItem('mtg_proxies') || '[]') };
          const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
-         const url = URL.createObjectURL(blob);
-         const a = document.createElement('a');
-         a.href = url;
-         a.download = `MTG_Companion_Backup_${new Date().toISOString().split('T')[0]}.json`;
-         a.click();
+         const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `MTG_Companion_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
       };
-
       const importData = (e) => {
-         const file = e.target.files[0];
-         if(!file) return;
-         const reader = new FileReader();
+         const file = e.target.files[0]; if(!file) return; const reader = new FileReader();
          reader.onload = (event) => {
              try {
                  const data = JSON.parse(event.target.result);
                  if(data.decks) localStorage.setItem('mtg_decks', JSON.stringify(data.decks));
                  if(data.proxies) localStorage.setItem('mtg_proxies', JSON.stringify(data.proxies));
-                 alert("Dati Ripristinati con successo! Ora hai tutti i mazzi.");
-                 navigate('mydecks');
-             } catch(err) {
-                 alert("Errore: Il file di backup sembra corrotto.");
-             }
-         };
-         reader.readAsText(file);
+                 alert("Dati Ripristinati!"); navigate('mydecks');
+             } catch(err) { alert("Errore file corrotto."); }
+         }; reader.readAsText(file);
       };
-
       return (
          <div className="max-w-md mx-auto bg-gray-800/90 p-6 rounded-xl shadow-lg border border-gray-600 mt-4 backdrop-blur-sm space-y-6">
            <h2 className="text-3xl font-black text-center text-blue-400 drop-shadow-md">Backup & Sync</h2>
-           <p className="text-gray-300 text-sm font-semibold text-center leading-snug">Usa questa funzione per passare istantaneamente tutti i tuoi mazzi e le tue proxy dal Telefono al PC, o viceversa, senza usare il cloud.</p>
-
            <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner">
               <h3 className="text-white font-bold mb-2 flex items-center gap-2">1. Esporta Dati</h3>
-              <p className="text-xs text-gray-400 mb-4">Salva l'intero database sul tuo dispositivo. Invia questo file su Google Drive, Telegram o Email.</p>
-              <button onClick={exportData} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-colors">
-                 💾 SCARICA BACKUP (.json)
-              </button>
+              <button onClick={exportData} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-colors">💾 SCARICA BACKUP</button>
            </div>
-
            <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner">
               <h3 className="text-white font-bold mb-2 flex items-center gap-2">2. Importa Dati</h3>
-              <p className="text-xs text-red-400 mb-4 font-bold">⚠️ ATTENZIONE: Caricando un file, sovrascriverai i mazzi attuali su questo dispositivo con quelli del backup.</p>
               <label className="block w-full bg-green-600 hover:bg-green-500 text-center py-4 rounded-xl cursor-pointer font-black text-white shadow-[0_0_15px_rgba(22,163,74,0.4)] transition-colors">
-                 📂 CARICA BACKUP (.json)
-                 <input type="file" accept=".json" className="hidden" onChange={importData} />
+                 📂 CARICA BACKUP <input type="file" accept=".json" className="hidden" onChange={importData} />
               </label>
            </div>
          </div>
@@ -590,7 +462,6 @@
     const ProxyEditor = ({card, onClose, onSave, isStandalone}) => {
       const [baseQuery, setBaseQuery] = useState("");
       const [baseCard, setBaseCard] = useState(card ? {name: card.name, type: card.type, img: card.image, cmc: card.cmc} : null);
-      
       const [customName, setCustomName] = useState("");
       const [customImg, setCustomImg] = useState("");
       const [zoom, setZoom] = useState(1);
@@ -601,79 +472,51 @@
 
       const searchBase = () => {
         if(!baseQuery.trim()) return;
-        fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(baseQuery.trim())}`)
-          .then(res => res.json())
-          .then(c => {
+        fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(baseQuery.trim())}`).then(res => res.json()).then(c => {
              try {
                  if(c.id) {
                    let imgUrl = "";
-                   if (c.image_uris && c.image_uris.normal) imgUrl = c.image_uris.normal;
-                   else if (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris) imgUrl = c.card_faces[0].image_uris.normal;
-                   
-                   setBaseCard({ name: c.name || "Sconosciuta", type: c.type_line || "", img: imgUrl, cmc: c.cmc || 0 });
-                   setCustomName(""); setCustomImg(""); setZoom(1); setPosX(50); setPosY(50);
-                   setMaskTop(11.5); setMaskHeight(44); setMaskLeft(8.2); setMaskWidth(83.6);
+                   if (c.image_uris && c.image_uris.normal) imgUrl = c.image_uris.normal; else if (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris) imgUrl = c.card_faces[0].image_uris.normal;
+                   setBaseCard({ name: c.name || "Sconosciuta", type: c.type_line || "", img: imgUrl, cmc: c.cmc || 0 }); setCustomName(""); setCustomImg(""); setZoom(1); setPosX(50); setPosY(50); setMaskTop(11.5); setMaskHeight(44); setMaskLeft(8.2); setMaskWidth(83.6);
                  } else { alert("Carta non trovata"); }
              } catch(err) { console.error("Errore", err); }
           }).catch(e => { console.error("Rete", e); });
       };
 
-      const handleImage = (e) => {
-        const file = e.target.files[0];
-        if(file) { const r = new FileReader(); r.onload = (ev) => setCustomImg(ev.target.result); r.readAsDataURL(file); }
-      };
+      const handleImage = (e) => { const file = e.target.files[0]; if(file) { const r = new FileReader(); r.onload = (ev) => setCustomImg(ev.target.result); r.readAsDataURL(file); } };
 
       const eseguiSalvataggio = () => {
         if(!baseCard || !customImg) return alert("Carica un'immagine!");
         setIsGenerating(true);
-
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const bImg = new Image();
-        bImg.crossOrigin = "anonymous"; bImg.src = baseCard.img;
+        const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+        const bImg = new Image(); bImg.crossOrigin = "anonymous"; bImg.src = baseCard.img;
 
         bImg.onload = () => {
-          canvas.width = bImg.width; canvas.height = bImg.height; 
-          ctx.drawImage(bImg, 0, 0, canvas.width, canvas.height);
-
+          canvas.width = bImg.width; canvas.height = bImg.height; ctx.drawImage(bImg, 0, 0, canvas.width, canvas.height);
           const uImg = new Image(); uImg.src = customImg;
           uImg.onload = () => {
              const artX = canvas.width * (maskLeft / 100); const artW = canvas.width * (maskWidth / 100);
              const artY = canvas.height * (maskTop / 100); const artH = canvas.height * (maskHeight / 100);
-
              ctx.save(); ctx.beginPath(); ctx.rect(artX, artY, artW, artH); ctx.clip(); 
-
              const boxAspect = artW / artH; const imgAspect = uImg.width / uImg.height;
              let baseW, baseH;
-             if (imgAspect > boxAspect) { baseH = artH; baseW = uImg.width * (artH / uImg.height); } 
-             else { baseW = artW; baseH = uImg.height * (artW / uImg.width); }
-             
+             if (imgAspect > boxAspect) { baseH = artH; baseW = uImg.width * (artH / uImg.height); } else { baseW = artW; baseH = uImg.height * (artW / uImg.width); }
              const finalW = baseW * zoom; const finalH = baseH * zoom;
              const offsetX = finalW * ((posX - 50) / 100); const offsetY = finalH * ((posY - 50) / 100);
              const imgX = artX + (artW / 2) - (finalW / 2) + offsetX; const imgY = artY + (artH / 2) - (finalH / 2) + offsetY;
-
              ctx.drawImage(uImg, imgX, imgY, finalW, finalH); ctx.restore();
 
              if (customName) {
-                const tx = canvas.width * 0.07; const ty = canvas.height * 0.045;
-                const tw = canvas.width * 0.65; const th = canvas.height * 0.055;
-                ctx.fillStyle = "#1a1a1a"; ctx.fillRect(tx, ty, tw, th);
-                ctx.strokeStyle = "#555"; ctx.strokeRect(tx, ty, tw, th);
-                ctx.fillStyle = "white"; ctx.font = `bold ${canvas.height * 0.025}px Georgia, serif`;
-                ctx.fillText(customName, tx + 10, ty + (th/1.8));
-                ctx.fillStyle = "#aaa"; ctx.font = `italic ${canvas.height * 0.015}px Georgia, serif`;
-                ctx.fillText(baseCard.name, tx + 10, ty + (th/1.1));
+                const tx = canvas.width * 0.07; const ty = canvas.height * 0.045; const tw = canvas.width * 0.65; const th = canvas.height * 0.055;
+                ctx.fillStyle = "#1a1a1a"; ctx.fillRect(tx, ty, tw, th); ctx.strokeStyle = "#555"; ctx.strokeRect(tx, ty, tw, th);
+                ctx.fillStyle = "white"; ctx.font = `bold ${canvas.height * 0.025}px Georgia, serif`; ctx.fillText(customName, tx + 10, ty + (th/1.8));
+                ctx.fillStyle = "#aaa"; ctx.font = `italic ${canvas.height * 0.015}px Georgia, serif`; ctx.fillText(baseCard.name, tx + 10, ty + (th/1.1));
              }
-
              const finalDataUrl = canvas.toDataURL("image/jpeg", 0.9);
              const newProxy = { id: 'proxy-' + Date.now(), name: customName || baseCard.name, image: finalDataUrl, proxyImage: finalDataUrl, imageBack: null, type: baseCard.type, cmc: baseCard.cmc || 0, colors: card ? (card.colors || []) : [], isCommander: false, isCustom: true };
-             
-             let savedProxies = JSON.parse(localStorage.getItem('mtg_proxies') || '[]');
-             savedProxies.push(newProxy); localStorage.setItem('mtg_proxies', JSON.stringify(savedProxies));
-             
+             let savedProxies = JSON.parse(localStorage.getItem('mtg_proxies') || '[]'); savedProxies.push(newProxy); localStorage.setItem('mtg_proxies', JSON.stringify(savedProxies));
              setIsGenerating(false);
-             if(isStandalone) { alert("Proxy Salvata nel Database!"); } 
-             else { onSave({...card, proxyImage: finalDataUrl, name: customName || card.name, isCustom: true}); }
+             if(isStandalone) { alert("Proxy Salvata nel Database!"); } else { onSave({...card, proxyImage: finalDataUrl, name: customName || card.name, isCustom: true}); }
           };
         };
       };
@@ -684,21 +527,13 @@
              <h2 className="text-xl font-bold text-purple-400">Proxy Creator</h2>
              {!isStandalone && <button onClick={onClose} className="bg-gray-600 px-3 py-1 rounded text-white font-bold">✖ Chiudi</button>}
           </div>
-          
           {isStandalone && (
-            <div className="flex gap-2 mb-4">
-              <input type="text" placeholder="Originale (es. Sol Ring)" value={baseQuery} onChange={e => setBaseQuery(e.target.value)} className="flex-1 bg-gray-900 border border-gray-600 p-2 rounded text-white outline-none" />
-              <button onClick={searchBase} className="bg-purple-600 hover:bg-purple-500 px-3 rounded text-white font-bold transition-colors">Cerca</button>
-            </div>
+            <div className="flex gap-2 mb-4"><input type="text" placeholder="Originale (es. Sol Ring)" value={baseQuery} onChange={e => setBaseQuery(e.target.value)} className="flex-1 bg-gray-900 border border-gray-600 p-2 rounded text-white outline-none" /><button onClick={searchBase} className="bg-purple-600 hover:bg-purple-500 px-3 rounded text-white font-bold transition-colors">Cerca</button></div>
           )}
-
           {baseCard && (
            <div className="animate-fade space-y-3">
              <input type="text" placeholder="Nuovo Titolo (Opzionale)" value={customName} onChange={e => setCustomName(e.target.value)} className="w-full bg-gray-900 border border-gray-600 p-2 rounded text-white font-bold outline-none" />
-             <label className="block w-full bg-gray-700 hover:bg-gray-600 text-center py-2 rounded cursor-pointer font-bold text-sm text-white shadow border border-gray-500 transition-colors">
-               📸 Carica Immagine <input type="file" accept="image/*" className="hidden" onChange={handleImage} />
-             </label>
-
+             <label className="block w-full bg-gray-700 hover:bg-gray-600 text-center py-2 rounded cursor-pointer font-bold text-sm text-white shadow border border-gray-500 transition-colors">📸 Carica Immagine <input type="file" accept="image/*" className="hidden" onChange={handleImage} /></label>
              {customImg && (
                  <div className="bg-gray-900 p-3 rounded-lg border border-gray-700 space-y-3">
                     <div className="space-y-1">
@@ -716,21 +551,11 @@
                     </div>
                  </div>
              )}
-
              <div className="relative w-full rounded-xl overflow-hidden shadow-2xl bg-black border border-gray-600 mt-4" style={{ aspectRatio: '63/88' }}>
                  <img src={baseCard.img} className="absolute inset-0 w-full h-full pointer-events-none" />
-                 {customImg && (
-                   <div className="absolute bg-black z-10 overflow-hidden shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] border border-black/50" style={{ top: `${maskTop}%`, left: `${maskLeft}%`, width: `${maskWidth}%`, height: `${maskHeight}%` }}>
-                     <img src={customImg} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transform: `translate(${posX - 50}%, ${posY - 50}%) scale(${zoom})` }} />
-                   </div>
-                 )}
-                 {customName && (
-                   <div className="absolute z-20 flex items-center px-3" style={{ top: '4.8%', left: '7.5%', width: '65%', height: '4.5%' }}>
-                     <span className="text-white tracking-wider truncate" style={{ fontFamily: "Georgia, serif", fontSize: '16px', fontWeight: '900', textShadow: '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' }}>{customName}</span>
-                   </div>
-                 )}
+                 {customImg && ( <div className="absolute bg-black z-10 overflow-hidden shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] border border-black/50" style={{ top: `${maskTop}%`, left: `${maskLeft}%`, width: `${maskWidth}%`, height: `${maskHeight}%` }}><img src={customImg} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transform: `translate(${posX - 50}%, ${posY - 50}%) scale(${zoom})` }} /></div> )}
+                 {customName && ( <div className="absolute z-20 flex items-center px-3" style={{ top: '4.8%', left: '7.5%', width: '65%', height: '4.5%' }}><span className="text-white tracking-wider truncate" style={{ fontFamily: "Georgia, serif", fontSize: '16px', fontWeight: '900', textShadow: '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' }}>{customName}</span></div> )}
              </div>
-
              <button onClick={eseguiSalvataggio} disabled={isGenerating} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-lg shadow-[0_0_15px_rgba(22,163,74,0.5)] mt-4 flex justify-center transition-all">
                  {isGenerating ? 'Attendere...' : (isStandalone ? '💾 Crea & Salva Database' : '💾 Applica Proxy al Mazzo')}
              </button>
@@ -738,25 +563,16 @@
           )}
         </div>
       );
-
-      if (isStandalone) {
-         return <div className="max-w-md mx-auto pt-4 pb-10 relative z-20">{editorUI}</div>;
-      }
+      if (isStandalone) return <div className="max-w-md mx-auto pt-4 pb-10 relative z-20">{editorUI}</div>;
       return (
         <div className="fixed inset-0 bg-gray-900 z-[9999] h-[100dvh] w-full flex flex-col animate-fade overflow-y-auto">
            <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md">
-             <button onClick={onClose} className="text-blue-400 font-bold flex items-center gap-1"><Icons.Back /> Indietro</button>
-             <h2 className="text-lg font-bold text-white truncate text-center">Proxy Editor</h2>
-             <div className="w-8"></div>
+             <button onClick={onClose} className="text-blue-400 font-bold flex items-center gap-1"><Icons.Back /> Indietro</button><h2 className="text-lg font-bold text-white truncate text-center">Proxy Editor</h2><div className="w-8"></div>
            </div>
-           <div className="flex-1 p-4 flex flex-col items-center pb-20">
-              {editorUI}
-           </div>
+           <div className="flex-1 p-4 flex flex-col items-center pb-20">{editorUI}</div>
         </div>
       );
     };
-
-    const buildCardKey = (c) => c.name + (c.isCustom ? c.proxyImage : "") + c.id + !!c.isSideboard + !!c.isCommander + !!c.isCompanion;
 
     const DeckBuilder = ({navigate, activeDeck}) => {
       const [deckName, setDeckName] = useState(activeDeck ? activeDeck.name : "");
@@ -792,7 +608,6 @@
       const [manageQty, setManageQty] = useState(0);
 
       const [editingProxyCard, setEditingProxyCard] = useState(null);
-      
       const [importText, setImportText] = useState("");
       const [showImport, setShowImport] = useState(false);
       
@@ -846,14 +661,11 @@
          if (!managingCard) return;
          const cardKey = buildCardKey(managingCard);
          setDeck(deck.map(c => {
-             if (buildCardKey(c) === cardKey) {
-                 return { ...c, image: newImg, imageBack: newImgBack };
-             }
+             if (buildCardKey(c) === cardKey) { return { ...c, image: newImg, imageBack: newImgBack }; }
              return c;
          }));
          setManagingCard({...managingCard, image: newImg, imageBack: newImgBack});
-         setPrintsList([]);
-         setShowIta(false);
+         setPrintsList([]); setShowIta(false);
          alert("Immagine aggiornata con successo per tutte le copie!");
       };
 
@@ -951,18 +763,13 @@
         const proxies = JSON.parse(localStorage.getItem('mtg_proxies') || '[]');
         if (proxies.length === 0) return alert("Non hai ancora creato nessuna Proxy! Vai in Proxy Lair.");
         setAllResults(proxies.map(p => ({...p, oracle_text: "", mana_cost: "", isCompanion: false})));
-        setLocalPage(0);
-        setNextScryfallUrl(null);
+        setLocalPage(0); setNextScryfallUrl(null);
       };
 
       const maxLocalPages = allResults.length > 0 ? Math.ceil(allResults.length / 15) : 0;
       const currentResults = allResults.length > 0 ? allResults.slice(localPage * 15, (localPage + 1) * 15) : [];
 
-      const goToNextPage = () => {
-         if (localPage + 1 < maxLocalPages) { setLocalPage(localPage + 1); } 
-         else if (nextScryfallUrl) { eseguiRicerca(nextScryfallUrl, false); setLocalPage(localPage + 1); }
-      };
-
+      const goToNextPage = () => { if (localPage + 1 < maxLocalPages) { setLocalPage(localPage + 1); } else if (nextScryfallUrl) { eseguiRicerca(nextScryfallUrl, false); setLocalPage(localPage + 1); } };
       const goToPrevPage = () => { if (localPage > 0) setLocalPage(localPage - 1); };
 
       const addToDeckMulti = () => {
@@ -970,8 +777,7 @@
         for(let i=0; i<addQty; i++) {
            newCards.push({...selectedCard, deckId: 'card-' + Date.now() + '-' + i + '-' + Math.random(), isCommander: false, isSideboard: addToSideboard, isCompanion: false});
         }
-        setDeck([...deck, ...newCards]);
-        closeSubView(setSelectedCard);
+        setDeck([...deck, ...newCards]); closeSubView(setSelectedCard);
       };
 
       const saveDeck = () => {
@@ -981,31 +787,22 @@
         if(activeDeck) savedDecks = savedDecks.map(d => d.id === activeDeck.id ? newDeckObj : d);
         else savedDecks.push(newDeckObj);
         localStorage.setItem('mtg_decks', JSON.stringify(savedDecks));
-        alert("Mazzo Salvato con successo!");
-        navigate('mydecks');
+        alert("Mazzo Salvato con successo!"); navigate('mydecks');
       };
 
       const handleImport = () => {
         if(!importText.trim()) return;
-        setLoading(true);
-        const lines = importText.split('\n');
-        let promises = [];
+        setLoading(true); const lines = importText.split('\n'); let promises = [];
         for (let i = 0; i < lines.length; i++) {
-          let line = lines[i].trim();
-          if(!line) continue;
-          const match = line.match(/^(\d+)?\s*(.*)$/);
-          let qty = match[1] ? parseInt(match[1]) : 1;
-          let name = match[2];
+          let line = lines[i].trim(); if(!line) continue;
+          const match = line.match(/^(\d+)?\s*(.*)$/); let qty = match[1] ? parseInt(match[1]) : 1; let name = match[2];
           
           let p = fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`)
             .then(res => { if(res.ok) return res.json(); throw new Error('Not found'); })
             .then(c => {
                let arr = [];
                for(let j=0; j<qty; j++) {
-                 let img = ""; let imgBack = null;
-                 let oracle_text = c.oracle_text || "";
-                 let mana_cost = c.mana_cost || "";
-
+                 let img = ""; let imgBack = null; let oracle_text = c.oracle_text || ""; let mana_cost = c.mana_cost || "";
                  if (c.image_uris && c.image_uris.normal) { img = c.image_uris.normal; } 
                  else if (c.card_faces && c.card_faces.length > 0) {
                      if (c.card_faces[0].image_uris && c.card_faces[0].image_uris.normal) img = c.card_faces[0].image_uris.normal;
@@ -1021,10 +818,8 @@
         }
         
         Promise.all(promises).then(resultsArray => {
-           let newCards = [];
-           resultsArray.forEach(arr => { newCards = newCards.concat(arr); });
-           setDeck(prev => prev.concat(newCards));
-           setShowImport(false); setImportText(""); setLoading(false);
+           let newCards = []; resultsArray.forEach(arr => { newCards = newCards.concat(arr); });
+           setDeck(prev => prev.concat(newCards)); setShowImport(false); setImportText(""); setLoading(false);
         });
       };
 
@@ -1035,13 +830,9 @@
 
       const deckMap = {};
       deck.forEach(c => {
-         const key = buildCardKey(c);
+         const key = buildCardKey(c); 
          if(!deckMap[key]) { deckMap[key] = { ...c, count: 1, isCmdrFlag: c.isCommander, isCompFlag: c.isCompanion }; } 
-         else { 
-            deckMap[key].count++; 
-            if(c.isCommander) deckMap[key].isCmdrFlag = true; 
-            if(c.isCompanion) deckMap[key].isCompFlag = true; 
-         }
+         else { deckMap[key].count++; if(c.isCommander) deckMap[key].isCmdrFlag = true; if(c.isCompanion) deckMap[key].isCompFlag = true; }
       });
       const groupedByCategory = { "Comandante": [], "Companion": [], "Creature": [], "Planeswalker": [], "Istantanei": [], "Stregonerie": [], "Artefatti": [], "Incantesimi": [], "Terre": [], "Altro": [], "Sideboard": [] };
       Object.values(deckMap).forEach(c => { groupedByCategory[getCardCategory(c)].push(c); });
@@ -1053,35 +844,22 @@
          for(let i=0; i<manageQty; i++) {
             newDeck.push({...managingCard, deckId: 'card-' + Date.now() + '-' + i + '-' + Math.random(), isCommander: managingCard.isCommander || managingCard.isCmdrFlag || false, isCompanion: managingCard.isCompanion || managingCard.isCompFlag || false});
          }
-         setDeck(newDeck);
-         closeSubView(setManagingCard);
+         setDeck(newDeck); closeSubView(setManagingCard);
       };
 
-      const toggleGroupCommander = (cardKey) => {
-         setDeck(deck.map(c => {
-            if (buildCardKey(c) === cardKey) return {...c, isCommander: !c.isCommander};
-            return c;
-         }));
-      };
-
-      const toggleGroupCompanion = (cardKey) => {
-         setDeck(deck.map(c => {
-            if (buildCardKey(c) === cardKey) return {...c, isCompanion: !c.isCompanion};
-            return c;
-         }));
-      };
+      const toggleGroupCommander = (cardKey) => { setDeck(deck.map(c => { if (buildCardKey(c) === cardKey) return {...c, isCommander: !c.isCommander}; return c; })); };
+      const toggleGroupCompanion = (cardKey) => { setDeck(deck.map(c => { if (buildCardKey(c) === cardKey) return {...c, isCompanion: !c.isCompanion}; return c; })); };
 
       let warnings = [];
       const commanders = deck.filter(c => c.isCommander && !c.isSideboard && !c.isCompanion);
       const companions = deck.filter(c => c.isCompanion);
       const mainDeckCards = deck.filter(c => !c.isSideboard && !c.isCompanion);
       const sideCards = deck.filter(c => c.isSideboard || c.isCompanion);
-      
       const cmdColors = new Set();
       commanders.forEach(c => { if (c.colors) c.colors.forEach(col => cmdColors.add(col)); });
 
       if (!rulebreaker) {
-         // REGOLE COMMANDER BASE
+         if (deckFormat === 'premodern' && companions.length > 0) warnings.push("I Companion non sono ammessi nel formato PREMODERN (1995-2003).");
          if (deckFormat === 'commander') {
              if (mainDeckCards.length !== 100) warnings.push(`Commander: il mazzo deve avere 100 carte esatte (ora ${mainDeckCards.length}).`);
              if (sideCards.filter(c=>!c.isCompanion).length > 0) warnings.push(`Commander non prevede una Sideboard (eccetto il Companion).`);
@@ -1100,85 +878,68 @@
              if (sideCards.length > 15) warnings.push(`La Sideboard può avere massimo 15 carte (incluso Companion). (Ora ${sideCards.length}).`);
          }
 
-         // REGOLE COMPANION (Il Cervello)
          const validCompanions = ["gyruda", "jegantha", "kaheera", "keruga", "lurrus", "lutri", "obosh", "umori", "yorion", "zirda"];
-         
          companions.forEach(comp => {
-             if (!validCompanions.some(vc => comp.name.toLowerCase().includes(vc))) {
-                 warnings.push(`La carta "${comp.name}" non è un Companion valido (solo i 10 di Ikoria possono esserlo).`);
-             }
+             if (!validCompanions.some(vc => comp.name.toLowerCase().includes(vc))) warnings.push(`La carta "${comp.name}" non è un Companion valido (solo i 10 di Ikoria possono esserlo).`);
          });
 
          if (companions.length > 1) warnings.push("Puoi avere al massimo 1 Companion in totale.");
          if (companions.length === 1) {
-             const comp = companions[0];
-             const compName = comp.name.toLowerCase();
-             const deckToCheck = deck.filter(c => !c.isSideboard && !c.isCompanion); 
-             
+             const comp = companions[0]; const compName = comp.name.toLowerCase(); const deckToCheck = deck.filter(c => !c.isSideboard && !c.isCompanion); 
              if (deckFormat === 'commander' && commanders.length > 0) {
                  let compInvalidColor = false;
                  if (comp.colors) { comp.colors.forEach(col => { if (!cmdColors.has(col)) compInvalidColor = true; }); }
                  if (compInvalidColor) warnings.push(`Il Companion "${comp.name}" non rispetta l'identità di colore del Comandante.`);
              }
 
-             if (compName.includes("kaheera")) {
-                 const invalid = deckToCheck.some(c => c.type && c.type.toLowerCase().includes("creature") && !/cat|elemental|nightmare|dinosaur|beast/i.test(c.type.toLowerCase()));
-                 if (invalid) warnings.push("Kaheera: Tutte le creature del mazzo devono essere Gatti, Elementali, Incubi, Dinosauri o Bestie.");
-             }
-             if (compName.includes("gyruda")) {
-                 const invalid = deckToCheck.some(c => (c.cmc || 0) % 2 !== 0);
-                 if (invalid) warnings.push("Gyruda: Tutte le carte del mazzo devono avere Costo di Mana Pari.");
-             }
-             if (compName.includes("obosh")) {
-                 const invalid = deckToCheck.some(c => (c.cmc || 0) > 0 && (c.cmc || 0) % 2 === 0 && !c.type.toLowerCase().includes("land"));
-                 if (invalid) warnings.push("Obosh: Tutte le carte non-terra del mazzo devono avere Costo di Mana Dispari.");
-             }
-             if (compName.includes("lurrus")) {
-                 const invalid = deckToCheck.some(c => (c.cmc || 0) > 2 && !c.type.toLowerCase().includes("instant") && !c.type.toLowerCase().includes("sorcery") && !c.type.toLowerCase().includes("land"));
-                 if (invalid) warnings.push("Lurrus: Tutti i permanenti devono avere Costo di Mana 2 o inferiore.");
-             }
-             if (compName.includes("keruga")) {
-                 const invalid = deckToCheck.some(c => (c.cmc || 0) < 3 && !c.type.toLowerCase().includes("land"));
-                 if (invalid) warnings.push("Keruga: Tutte le carte non-terra devono avere Costo di Mana 3 o superiore.");
-             }
+             if (compName.includes("kaheera")) { if (deckToCheck.some(c => c.type && c.type.toLowerCase().includes("creature") && !/cat|elemental|nightmare|dinosaur|beast/i.test(c.type.toLowerCase()))) warnings.push("Kaheera: Tutte le creature del mazzo devono essere Gatti, Elementali, Incubi, Dinosauri o Bestie."); }
+             if (compName.includes("gyruda")) { if (deckToCheck.some(c => (c.cmc || 0) % 2 !== 0)) warnings.push("Gyruda: Tutte le carte del mazzo devono avere Costo Pari."); }
+             if (compName.includes("obosh")) { if (deckToCheck.some(c => (c.cmc || 0) > 0 && (c.cmc || 0) % 2 === 0 && !c.type.toLowerCase().includes("land"))) warnings.push("Obosh: Tutte le carte non-terra del mazzo devono avere Costo Dispari."); }
+             if (compName.includes("lurrus")) { if (deckToCheck.some(c => (c.cmc || 0) > 2 && !c.type.toLowerCase().includes("instant") && !c.type.toLowerCase().includes("sorcery") && !c.type.toLowerCase().includes("land"))) warnings.push("Lurrus: Tutti i permanenti devono avere Costo 2 o inferiore."); }
+             if (compName.includes("keruga")) { if (deckToCheck.some(c => (c.cmc || 0) < 3 && !c.type.toLowerCase().includes("land"))) warnings.push("Keruga: Tutte le carte non-terra devono avere Costo 3 o superiore."); }
              if (compName.includes("jegantha")) {
-                 const invalid = deckToCheck.some(c => {
-                    if (!c.mana_cost) return false;
-                    const matches = c.mana_cost.match(/\{[WUBRG]\}/g) || [];
-                    const counts = {};
-                    matches.forEach(m => counts[m] = (counts[m] || 0) + 1);
-                    return Object.values(counts).some(v => v > 1);
-                 });
-                 if (invalid) warnings.push("Jegantha: Nessuna carta può avere simboli di mana doppi nel costo.");
+                 if (deckToCheck.some(c => {
+                    if (!c.mana_cost) return false; const matches = c.mana_cost.match(/\{[WUBRG]\}/g) || []; const counts = {}; matches.forEach(m => counts[m] = (counts[m] || 0) + 1); return Object.values(counts).some(v => v > 1);
+                 })) warnings.push("Jegantha: Nessuna carta può avere simboli di mana doppi nel costo.");
              }
              if (compName.includes("yorion")) {
                  if (deckFormat === 'commander') warnings.push("Yorion non è un Companion legale in Commander (richiede 120 carte totali).");
                  else if (mainDeckCards.length < 80) warnings.push("Yorion: Il mazzo principale deve avere almeno 80 carte.");
              }
+             if (compName.includes("umori")) {
+                 const nonLands = deckToCheck.filter(c => !c.type.toLowerCase().includes("land")); const types = new Set();
+                 nonLands.forEach(c => { const tl = c.type.toLowerCase(); if(tl.includes("creature")) types.add("creature"); else if(tl.includes("artifact")) types.add("artifact"); else if(tl.includes("enchantment")) types.add("enchantment"); else if(tl.includes("planeswalker")) types.add("planeswalker"); else if(tl.includes("instant")) types.add("instant"); else if(tl.includes("sorcery")) types.add("sorcery"); else if(tl.includes("battle")) types.add("battle"); });
+                 if (types.size > 1) warnings.push("Umori: Tutte le carte non-terra devono condividere lo stesso tipo (es. tutte Creature o tutti Artefatti).");
+             }
+             if (compName.includes("zirda")) {
+                 if (deckToCheck.some(c => {
+                    const tl = c.type.toLowerCase();
+                    if(tl.includes("instant") || tl.includes("sorcery") || tl.includes("basic land") || tl.includes("planeswalker")) return false; 
+                    if(tl.includes("land") && !c.oracle_text) return false; 
+                    return !/:|Equip|Cycling|Scavenge|Unearth|Outlast|Ninjutsu|Transfigure|Fortify|Bloodrush|Megamorph|Monstrosity|Adapt|Awaken|Exert|Embalm|Eternalize|Crew|Level Up/i.test(c.oracle_text || "");
+                 })) warnings.push("Zirda: Ogni permanente nel mazzo deve avere un'abilità attivata.");
+             }
+             if (compName.includes("lutri") && deckFormat === 'commander') warnings.push("Lutri è BANNATO in Commander.");
          }
 
-         let hasIllegalColor = false;
-         let nameCounts = {};
+         let hasIllegalColor = false; let nameCounts = {};
          const multiCopyAllowed = ["relentless rats", "rat colony", "shadowborn apostle", "persistent petitioners", "dragon's approach", "slime against humanity", "nazgûl"];
 
          deck.forEach(c => {
             if (c.legalities && c.legalities[deckFormat] !== 'legal' && c.legalities[deckFormat] !== 'restricted') {
-                if(!warnings.includes(`La carta "${c.name}" è BANNATA in ${deckFormat.toUpperCase()}.`)) warnings.push(`La carta "${c.name}" è BANNATA in ${deckFormat.toUpperCase()}.`);
+                if(!warnings.includes(`La carta "${c.name}" è BANNATA/ILLEGALE in ${deckFormat.toUpperCase()}.`)) warnings.push(`La carta "${c.name}" è BANNATA/ILLEGALE in ${deckFormat.toUpperCase()}.`);
             }
             if (deckFormat === 'commander' && !c.isCommander && !c.isCompanion && c.colors && c.colors.length > 0) {
-               if (cmdColors.size === 0) hasIllegalColor = true;
-               else c.colors.forEach(col => { if (!cmdColors.has(col)) hasIllegalColor = true; });
+               if (cmdColors.size === 0) hasIllegalColor = true; else c.colors.forEach(col => { if (!cmdColors.has(col)) hasIllegalColor = true; });
             }
-            let nLower = c.name ? c.name.toLowerCase() : "";
-            let isBasic = c.type && c.type.toLowerCase().includes("basic");
-            let canBypassCount = isBasic || multiCopyAllowed.includes(nLower);
-            nameCounts[c.name] = (nameCounts[c.name] || 0) + 1;
+            let nLower = c.name ? c.name.toLowerCase() : ""; let isBasic = c.type && c.type.toLowerCase().includes("basic"); let canBypassCount = isBasic || multiCopyAllowed.includes(nLower); nameCounts[c.name] = (nameCounts[c.name] || 0) + 1;
             
             if (!canBypassCount) {
                if (deckFormat === 'commander' && nameCounts[c.name] > 1 && !c.isCompanion) {
                   if(!warnings.includes(`Singleton violata: troppe copie di "${c.name}".`)) warnings.push(`Singleton violata: troppe copie di "${c.name}".`);
-               }
-               if (deckFormat !== 'commander' && nameCounts[c.name] > 4) {
+               } else if (deckFormat === 'vintage' && c.legalities && c.legalities.vintage === 'restricted' && nameCounts[c.name] > 1) {
+                  if(!warnings.includes(`VINTAGE RESTRICTED: massimo 1 copia di "${c.name}".`)) warnings.push(`VINTAGE RESTRICTED: massimo 1 copia di "${c.name}".`);
+               } else if (deckFormat !== 'commander' && nameCounts[c.name] > 4) {
                   if(!warnings.includes(`Massimo 4 copie superato per "${c.name}".`)) warnings.push(`Massimo 4 copie superato per "${c.name}".`);
                }
             }
@@ -1188,55 +949,39 @@
 
       const totalCMC = deck.filter(c => !c.isSideboard && !c.isCompanion).reduce((acc, c) => acc + (c.cmc || 0), 0);
       const avgCMC = mainDeckCards.length > 0 ? (totalCMC / mainDeckCards.length).toFixed(2) : 0;
-
       const isSubViewActive = selectedCard || managingCard || editingProxyCard;
 
       const RenderModaleCarta = ({ targetCard, setterState, qtyVal, setQtyVal, actionLabel, actionFunc, closeFunc }) => {
-         const defFront = targetCard.proxyImage || targetCard.image || "mtg-bg.jpg";
-         const defBack = targetCard.imageBack;
-         const currentFront = showIta && itaImg ? itaImg : defFront;
-         const currentBack = showIta && itaImgBack ? itaImgBack : defBack;
+         const defFront = targetCard.proxyImage || targetCard.image || "mtg-bg.jpg"; const defBack = targetCard.imageBack;
+         const currentFront = showIta && itaImg ? itaImg : defFront; const currentBack = showIta && itaImgBack ? itaImgBack : defBack;
          const displayImg = showBack && currentBack ? currentBack : currentFront;
 
          return (
             <div className="w-full flex flex-col animate-fade pb-10">
                <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md mb-6">
                  <button onClick={() => closeSubView(closeFunc)} className="text-blue-400 font-bold flex items-center gap-1 text-lg"><Icons.Back /> Indietro</button>
-                 <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">{targetCard.name}</h2>
-                 <div className="w-8"></div>
+                 <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">{targetCard.name}</h2><div className="w-8"></div>
                </div>
-               
                <div className="flex-1 flex flex-col items-center justify-start p-2">
                  <img src={displayImg} alt={targetCard.name} className="w-auto max-h-[50vh] object-contain rounded-xl mb-4 shadow-2xl" />
-                 
                  {currentBack && !targetCard.isCustom && (
-                    <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">
-                       🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}
-                    </button>
+                    <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}</button>
                  )}
-                 
                  <div className="w-full max-w-sm mb-4 flex gap-2">
                     <button onClick={() => translateCard(targetCard)} disabled={translating} className="flex-1 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(67,56,202,0.4)] border border-indigo-500 transition-all text-xs">
                       {translating ? "Traduco..." : (showIta ? "🇬🇧 Torna in Inglese" : "🇮🇹 Tenta Traduzione")}
                     </button>
                     {!targetCard.isCustom && targetCard.printsUrl && (
-                        <button onClick={() => fetchOtherPrints(targetCard)} disabled={loadingPrints} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl shadow-lg border border-orange-500 transition-all text-xs">
-                          {loadingPrints ? "Cerco..." : "🖼️ Altre Stampe"}
-                        </button>
+                        <button onClick={() => fetchOtherPrints(targetCard)} disabled={loadingPrints} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl shadow-lg border border-orange-500 transition-all text-xs">🖼️ Altre Stampe</button>
                     )}
                  </div>
-
                  {printsList.length > 0 && (
                     <div className="w-full max-w-sm mb-4 bg-gray-800 p-2 rounded-xl border border-gray-600 shadow-md animate-fade">
                        <p className="text-xs text-gray-300 font-bold mb-2">Seleziona una Stampa / Secret Lair:</p>
                        <div className="flex overflow-x-auto gap-2 pb-2">
                           {printsList.map(p => (
                              <div key={p.id} className="flex flex-col items-center shrink-0">
-                               <img src={p.image} className="w-20 rounded cursor-pointer border-2 border-transparent hover:border-blue-500 shadow-sm" 
-                                    onClick={() => { 
-                                       setterState({...targetCard, image: p.image, imageBack: p.imageBack, id: p.id}); 
-                                       setShowIta(false); 
-                                    }} />
+                               <img src={p.image} className="w-20 rounded cursor-pointer border-2 border-transparent hover:border-blue-500 shadow-sm" onClick={() => { setterState({...targetCard, image: p.image, imageBack: p.imageBack}); setShowIta(false); }} />
                                {actionLabel === "Gestisci" && (
                                   <button onClick={() => changeArtOfExistingCard(p.image, p.imageBack)} className="mt-1 text-[8px] bg-blue-600 text-white px-1 rounded hover:bg-blue-500 font-bold">APPLICA</button>
                                )}
@@ -1245,7 +990,6 @@
                        </div>
                     </div>
                  )}
-
                  <div className="bg-gray-800 rounded-xl w-full max-w-sm p-4 flex flex-col gap-4 shadow-xl border border-gray-600">
                     <div className="flex justify-between items-center bg-gray-900 rounded-lg p-3 border border-gray-700">
                        <span className="text-gray-400 font-bold px-2">{actionLabel === "Aggiungi" ? "Aggiungi Copie:" : "Copie Totali:"}</span>
@@ -1266,7 +1010,6 @@
 
       return (
         <div className="max-w-2xl mx-auto relative z-10 w-full">
-          
           {selectedCard && <RenderModaleCarta targetCard={selectedCard} setterState={setSelectedCard} qtyVal={addQty} setQtyVal={setAddQty} actionLabel="Aggiungi" actionFunc={addToDeckMulti} closeFunc={setSelectedCard} />}
           {managingCard && <RenderModaleCarta targetCard={managingCard} setterState={setManagingCard} qtyVal={manageQty} setQtyVal={setManageQty} actionLabel="Gestisci" actionFunc={applyManageQty} closeFunc={setManagingCard} />}
           
@@ -1274,8 +1017,7 @@
             <div className="w-full flex flex-col animate-fade pb-10">
                <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md mb-6">
                  <button onClick={() => closeSubView(setEditingProxyCard)} className="text-blue-400 font-bold flex items-center gap-1 text-lg"><Icons.Back /> Indietro</button>
-                 <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">Proxy Editor</h2>
-                 <div className="w-8"></div>
+                 <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">Proxy Editor</h2><div className="w-8"></div>
                </div>
                <ProxyEditor card={editingProxyCard} onClose={() => closeSubView(setEditingProxyCard)} onSave={saveInlineProxy} isStandalone={false} />
             </div>
@@ -1284,26 +1026,21 @@
           <div className={isSubViewActive ? "hidden" : "space-y-4"}>
               <div className="bg-gray-800/90 p-4 rounded-xl border border-gray-600 shadow-md backdrop-blur-sm mt-4">
                 <input type="text" placeholder="Nome del Mazzo" value={deckName} onChange={e => setDeckName(e.target.value)} className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white text-xl font-bold mb-4 outline-none" />
-                
                 <div className="flex justify-between items-center bg-gray-900 p-2 rounded border border-gray-700 mb-3">
                   <span className="text-gray-400 text-sm font-bold ml-2">Formato:</span>
                   <select value={deckFormat} onChange={e => setDeckFormat(e.target.value)} className="bg-gray-800 text-white p-2 rounded font-bold border border-gray-600 outline-none">
-                     <option value="commander">Commander</option>
-                     <option value="pauper">Pauper</option>
-                     <option value="modern">Modern</option>
+                     <option value="commander">Commander</option><option value="standard">Standard</option><option value="pioneer">Pioneer</option>
+                     <option value="modern">Modern</option><option value="legacy">Legacy</option><option value="vintage">Vintage</option>
+                     <option value="pauper">Pauper</option><option value="premodern">Premodern</option>
                   </select>
                 </div>
-
                 <div className="flex justify-between items-center text-sm mb-2">
                   <div className="flex gap-2">
                      <span className={`px-2 py-1 rounded font-bold ${((deckFormat === 'commander' && mainDeckCards.length === 100) || (deckFormat !== 'commander' && mainDeckCards.length >= 60)) ? 'bg-green-600' : 'bg-red-600'}`}>Main: {mainDeckCards.length}</span>
-                     {deckFormat !== 'commander' && (
-                        <span className={`px-2 py-1 rounded font-bold ${(sideCards.length <= 15) ? 'bg-indigo-600' : 'bg-red-600'}`}>Side: {sideCards.length}</span>
-                     )}
+                     {deckFormat !== 'commander' && ( <span className={`px-2 py-1 rounded font-bold ${(sideCards.length <= 15) ? 'bg-indigo-600' : 'bg-red-600'}`}>Side: {sideCards.length}</span> )}
                   </div>
                   <span className="bg-blue-600 px-2 py-1 rounded font-bold">Avg CMC: {avgCMC}</span>
                 </div>
-                
                 {!rulebreaker && warnings.length > 0 && (
                    <div className="bg-red-900/80 border border-red-500 rounded p-3 mt-3 shadow-inner">
                       <p className="text-red-300 font-bold text-[10px] mb-1 uppercase tracking-wide">⚠️ Controllo Legalità {deckFormat.toUpperCase()}:</p>
@@ -1313,12 +1050,10 @@
                    </div>
                 )}
                 <label className="flex items-center gap-2 text-sm text-yellow-500 font-bold bg-yellow-900/30 p-2 rounded border border-yellow-700 cursor-pointer justify-center mt-3">
-                  <input type="checkbox" checked={rulebreaker} onChange={e => setRulebreaker(e.target.checked)} className="accent-yellow-500 w-4 h-4" />
-                  Attiva "Rulebreaker" (Ignora restrizioni)
+                  <input type="checkbox" checked={rulebreaker} onChange={e => setRulebreaker(e.target.checked)} className="accent-yellow-500 w-4 h-4" /> Attiva "Rulebreaker"
                 </label>
               </div>
 
-              {/* FILTRI COMPLETI */}
               <div className="bg-gray-800/90 p-4 rounded-xl border border-gray-600 shadow-md backdrop-blur-sm">
                  <h3 className="font-bold text-blue-400 mb-2 border-b border-gray-700 pb-1 flex justify-between">
                     Ricerca Carte
@@ -1329,24 +1064,16 @@
                     )}
                  </h3>
                  <p className="text-[10px] text-gray-400 mb-3 text-center uppercase tracking-wider font-bold">🇺🇸 Cerca in Inglese (es. "Plains", "Angel")</p>
-                 
-                 <div className="flex gap-2 mb-2">
-                   <input type="text" placeholder="Nome della carta..." value={query} onChange={e => setQuery(e.target.value)} onKeyPress={e => e.key === 'Enter' && searchCard()} className="flex-1 bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none" />
-                 </div>
-                 <div className="flex gap-2 mb-3">
-                   <input type="text" placeholder="Testo Abilità (es. Landfall, Deathtouch)" value={oracleText} onChange={e => setOracleText(e.target.value)} onKeyPress={e => e.key === 'Enter' && searchCard()} className="flex-1 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none" />
-                 </div>
+                 <div className="flex gap-2 mb-2"><input type="text" placeholder="Nome della carta..." value={query} onChange={e => setQuery(e.target.value)} onKeyPress={e => e.key === 'Enter' && searchCard()} className="flex-1 bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none" /></div>
+                 <div className="flex gap-2 mb-3"><input type="text" placeholder="Testo Abilità (es. Landfall, Deathtouch)" value={oracleText} onChange={e => setOracleText(e.target.value)} onKeyPress={e => e.key === 'Enter' && searchCard()} className="flex-1 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none" /></div>
                  
                  <div className="flex flex-col gap-2 mb-3 bg-gray-900 p-2 rounded border border-gray-700">
                     <div className="flex gap-2 overflow-x-auto pb-1 justify-center">
-                      {ManaColors.map(m => (
-                        <button key={m.id} onClick={() => toggleMana(m.id)} className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center font-bold border-2 ${mana.includes(m.id) ? 'border-white scale-110' : 'border-transparent opacity-50'} ${m.color}`}>{m.label}</button>
-                      ))}
+                      {ManaColors.map(m => (<button key={m.id} onClick={() => toggleMana(m.id)} className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center font-bold border-2 ${mana.includes(m.id) ? 'border-white scale-110' : 'border-transparent opacity-50'} ${m.color}`}>{m.label}</button>))}
                     </div>
                     <div className="flex items-center justify-center gap-2">
                        <select value={colorMatchType} onChange={e => setColorMatchType(e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1 text-white text-xs outline-none">
-                          <option value="include">Contiene questi colori</option>
-                          <option value="exact">Esattamente questi colori</option>
+                          <option value="include">Contiene questi colori</option><option value="exact">Esattamente questi colori</option>
                        </select>
                        <label className="flex items-center gap-1 text-xs text-purple-300 font-bold bg-purple-900/30 px-2 py-1 rounded border border-purple-700 cursor-pointer">
                           <input type="checkbox" checked={isMulticolorOnly} onChange={e=>setIsMulticolorOnly(e.target.checked)} className="accent-purple-500" /> Solo Multi
@@ -1356,34 +1083,16 @@
 
                  <div className="grid grid-cols-2 gap-2 mb-3">
                    <select value={superType} onChange={e => setSuperType(e.target.value)} className="bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none">
-                     <option value="">Supertipo...</option>
-                     <option value="legendary">Legendary</option>
-                     <option value="basic">Basic</option>
-                     <option value="snow">Snow</option>
+                     <option value="">Supertipo...</option><option value="legendary">Legendary</option><option value="basic">Basic</option><option value="snow">Snow</option>
                    </select>
                    <select value={rarity} onChange={e => setRarity(e.target.value)} className="bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none">
-                     <option value="">Rarità...</option>
-                     <option value="c">Comune</option>
-                     <option value="u">Non Comune</option>
-                     <option value="r">Rara</option>
-                     <option value="m">Mitica</option>
+                     <option value="">Rarità...</option><option value="c">Comune</option><option value="u">Non Comune</option><option value="r">Rara</option><option value="m">Mitica</option>
                    </select>
                    <select value={cardType} onChange={e => setCardType(e.target.value)} className="bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none">
-                     <option value="">Tipo 1...</option>
-                     <option value="creature">Creatura</option>
-                     <option value="artifact">Artefatto</option>
-                     <option value="enchantment">Incantesimo</option>
-                     <option value="instant">Istantaneo</option>
-                     <option value="sorcery">Stregoneria</option>
-                     <option value="land">Terra</option>
-                     <option value="planeswalker">Planeswalker</option>
+                     <option value="">Tipo 1...</option><option value="creature">Creatura</option><option value="artifact">Artefatto</option><option value="enchantment">Incantesimo</option><option value="instant">Istantaneo</option><option value="sorcery">Stregoneria</option><option value="land">Terra</option><option value="planeswalker">Planeswalker</option>
                    </select>
                    <select value={cardType2} onChange={e => setCardType2(e.target.value)} className="bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none">
-                     <option value="">Tipo 2...</option>
-                     <option value="creature">Creatura</option>
-                     <option value="artifact">Artefatto</option>
-                     <option value="enchantment">Incantesimo</option>
-                     <option value="land">Terra</option>
+                     <option value="">Tipo 2...</option><option value="creature">Creatura</option><option value="artifact">Artefatto</option><option value="enchantment">Incantesimo</option><option value="land">Terra</option>
                    </select>
                    <input type="text" placeholder="Sottotipo (Goblin)" value={subType} onChange={e => setSubType(e.target.value)} className="col-span-2 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none" />
                  </div>
@@ -1394,7 +1103,6 @@
                      <option value="=">=</option><option value=">">&gt;</option><option value="<">&lt;</option>
                    </select>
                    <input type="number" inputMode="numeric" min="0" value={cmcVal} onChange={e => setCmcVal(e.target.value)} className="w-16 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm font-bold text-center outline-none" />
-                   
                    <label className="ml-auto flex items-center gap-1 text-xs text-yellow-500 font-bold bg-yellow-900/30 px-2 py-2 rounded border border-yellow-700 cursor-pointer">
                       <input type="checkbox" checked={isCommanderOnly} onChange={e=>setIsCommanderOnly(e.target.checked)} className="accent-yellow-500" /> ⭐ Solo Cmdr
                    </label>
@@ -1404,9 +1112,7 @@
                    <button onClick={searchCard} className="flex-1 bg-blue-600 hover:bg-blue-700 font-bold py-3 rounded text-white shadow-lg transition-colors">
                      {loading ? "Cerco..." : "Cerca Carte"}
                    </button>
-                   <button onClick={loadMyProxies} className="flex-1 bg-purple-600 hover:bg-purple-700 font-bold py-3 rounded text-white shadow-lg transition-colors">
-                     ✨ Mie Proxy
-                   </button>
+                   <button onClick={loadMyProxies} className="flex-1 bg-purple-600 hover:bg-purple-700 font-bold py-3 rounded text-white shadow-lg transition-colors">✨ Mie Proxy</button>
                  </div>
                  
                  <button onClick={() => setShowImport(!showImport)} className="text-sm text-blue-400 hover:text-blue-300 underline mt-4 block text-center w-full transition-colors">📥 Importa da Testo (Es. Moxfield)</button>
@@ -1428,7 +1134,6 @@
                         <button onClick={goToNextPage} disabled={localPage + 1 >= maxLocalPages && !nextScryfallUrl} className={`w-8 h-8 rounded font-bold text-lg flex items-center justify-center ${(localPage + 1 >= maxLocalPages && !nextScryfallUrl) ? 'bg-gray-700 text-gray-500' : 'bg-blue-600 text-white shadow transition-colors'}`}>➡</button>
                      </div>
                   </div>
-
                   <div className="grid grid-cols-3 gap-2">
                     {currentResults.map((card, i) => (
                       <div key={i} className="relative cursor-pointer hover:ring-2 ring-blue-500 rounded shadow-md" onClick={() => openSubView(setSelectedCard, card, setAddQty, 1)}>
@@ -1439,7 +1144,6 @@
                 </div>
               )}
 
-              {/* LISTA MAZZO INTERATTIVA CON CMD E PROXY BUTTONS */}
               {Object.keys(groupedByCategory).some(cat => groupedByCategory[cat].length > 0) && (
                 <div className="bg-gray-800/90 p-3 rounded-xl border border-gray-600 shadow-md backdrop-blur-sm animate-fade">
                   <h3 className="font-bold text-white mb-3 pl-2">La tua Lista:</h3>
@@ -1454,6 +1158,7 @@
                              </h4>
                              {cardsInCat.map((card, index) => (
                                <div key={index} className={`flex gap-2 bg-gray-900 p-2 rounded-lg border ${card.isCmdrFlag ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : (card.isCompFlag ? 'border-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.3)]' : (card.isSideboard ? 'border-indigo-500' : 'border-gray-700'))}`}>
+                                 
                                  <div className="relative cursor-pointer shrink-0" onClick={() => openSubView(setManagingCard, card, setManageQty, card.count)}>
                                      <img src={card.proxyImage || card.image || "mtg-bg.jpg"} alt={card.name} className="w-14 rounded object-cover shadow border border-gray-600" />
                                      <div className="absolute -top-2 -right-2 bg-blue-600 text-white font-black text-xs w-6 h-6 flex items-center justify-center rounded-full shadow border border-blue-400">
@@ -1462,8 +1167,9 @@
                                  </div>
                                  
                                  <div className="flex-1 text-sm flex flex-col justify-between pt-1 overflow-hidden">
-                                   <h4 className="font-bold text-gray-200 text-xs leading-tight truncate pr-1 cursor-pointer" onClick={() => openSubView(setManagingCard, card, setManageQty, card.count)}>{card.name}</h4>
-                                   
+                                   <h4 className="font-bold text-gray-200 text-xs leading-tight truncate pr-1 cursor-pointer" onClick={() => openSubView(setManagingCard, card, setManageQty, card.count)}>
+                                       {card.name}
+                                   </h4>
                                    <div className="flex items-center justify-between mt-1">
                                      <div className="flex items-center gap-2">
                                        {deckFormat === 'commander' && !card.isSideboard && !card.isCompFlag && (
@@ -1471,13 +1177,12 @@
                                            <input type="checkbox" checked={card.isCmdrFlag} onChange={() => toggleGroupCommander(buildCardKey(card))} className="accent-yellow-500" /> Cmdr
                                          </label>
                                        )}
-                                       {!card.isCmdrFlag && (
+                                       {!card.isCmdrFlag && !card.isSideboard && (
                                          <label className="flex items-center gap-1 text-pink-500 text-[10px] font-bold cursor-pointer">
                                            <input type="checkbox" checked={card.isCompFlag} onChange={() => toggleGroupCompanion(buildCardKey(card))} className="accent-pink-500" /> Comp
                                          </label>
                                        )}
                                      </div>
-                                     
                                      <div className="flex gap-1 ml-auto">
                                        <button onClick={() => openSubView(setEditingProxyCard, deck.find(c => buildCardKey(c) === buildCardKey(card)))} className="text-[10px] bg-purple-700 hover:bg-purple-600 text-white font-bold px-2 py-1 rounded shadow transition-colors">🎨 Proxy</button>
                                      </div>
@@ -1497,7 +1202,6 @@
       );
     };
 
-    // --- VISUALIZZATORE MAZZI (SOLO LETTURA E TRADUZIONE) ---
     const DeckViewer = ({deck, navigate}) => {
       const [viewingCard, setViewingCard] = useState(null);
       const [itaImg, setItaImg] = useState(null);
@@ -1506,7 +1210,6 @@
       const [showBack, setShowBack] = useState(false);
       const [translating, setTranslating] = useState(false);
       const [savedScroll, setSavedScroll] = useState(0);
-
       const [printsList, setPrintsList] = useState([]);
       const [loadingPrints, setLoadingPrints] = useState(false);
 
@@ -1527,18 +1230,12 @@
           setItaImg(null); setItaImgBack(null); setShowIta(false); setShowBack(false); setPrintsList([]);
           setViewingCard(c); window.scrollTo(0,0); 
       };
-      
-      const closeViewer = () => { 
-          setViewingCard(null); 
-          setTimeout(() => window.scrollTo(0, savedScroll), 10);
-      };
+      const closeViewer = () => { setViewingCard(null); setTimeout(() => window.scrollTo(0, savedScroll), 10); };
 
       const fetchOtherPrints = (card) => {
           if(!card.printsUrl) return alert("Questa carta non ha altre stampe disponibili sul database.");
           setLoadingPrints(true);
-          fetch(card.printsUrl)
-            .then(res => res.json())
-            .then(data => {
+          fetch(card.printsUrl).then(res => res.json()).then(data => {
                 if(data.data && data.data.length > 0) {
                     const mapped = data.data.filter(c => c.image_uris || (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris)).map(c => {
                          let iImg = ""; let iImgBack = null;
@@ -1559,9 +1256,7 @@
         if (card.isCustom) return alert("Le carte Proxy non possono essere tradotte dal database.");
         if (itaImg) { setShowIta(!showIta); return; } 
         setTranslating(true);
-        fetch(`https://api.scryfall.com/cards/search?q=!"${card.name}"+lang:it`)
-          .then(res => res.json())
-          .then(data => {
+        fetch(`https://api.scryfall.com/cards/search?q=!"${card.name}"+lang:it`).then(res => res.json()).then(data => {
              if (data.data && data.data.length > 0) {
                  const itCard = data.data[0];
                  let iImg = null; let iImgBack = null;
@@ -1592,27 +1287,19 @@
                  <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">{viewingCard.name}</h2>
                  <div className="w-8"></div>
                </div>
-               
                <div className="flex-1 flex flex-col items-center justify-start p-2">
                  <img src={displayImg} alt={viewingCard.name} className="w-auto max-h-[60vh] object-contain rounded-xl mb-4 shadow-2xl" />
-                 
-                 {(itaImgBack || viewingCard.imageBack) && !viewingCard.isCustom && (
-                    <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">
-                       🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}
-                    </button>
+                 {currentBack && !viewingCard.isCustom && (
+                    <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}</button>
                  )}
-
                  <div className="w-full max-w-sm mb-4 flex gap-2">
                     <button onClick={() => translateCard(viewingCard)} disabled={translating} className="flex-1 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(67,56,202,0.4)] border border-indigo-500 transition-all text-xs">
                       {translating ? "Traduco..." : (showIta ? "🇬🇧 Torna in Inglese" : "🇮🇹 Tenta Traduzione")}
                     </button>
                     {!viewingCard.isCustom && viewingCard.printsUrl && (
-                        <button onClick={() => fetchOtherPrints(viewingCard)} disabled={loadingPrints} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl shadow-lg border border-orange-500 transition-all text-xs">
-                          {loadingPrints ? "Cerco..." : "🖼️ Altre Stampe"}
-                        </button>
+                        <button onClick={() => fetchOtherPrints(viewingCard)} disabled={loadingPrints} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl shadow-lg border border-orange-500 transition-all text-xs">🖼️ Altre Stampe</button>
                     )}
                  </div>
-
                  {printsList.length > 0 && (
                     <div className="w-full max-w-sm mb-4 bg-gray-800 p-2 rounded-xl border border-gray-600 shadow-md animate-fade">
                        <p className="text-xs text-gray-300 font-bold mb-2">Questa è la modalità lettura. La stampa non verrà salvata nel mazzo.</p>
@@ -1694,14 +1381,12 @@
          const cmdNames = cmds.map(c=>c.name.toLowerCase()).join(" ");
          const matchCmd = cmdNames.includes(filterQuery.toLowerCase());
          const textMatch = matchName || matchCmd;
-
          let colorMatch = true;
          if (manaFilter.length > 0) {
              const deckColors = new Set();
              cmds.forEach(c => { if(c.colors) c.colors.forEach(col => deckColors.add(col)); });
              colorMatch = manaFilter.every(m => deckColors.has(m));
          }
-
          return textMatch && colorMatch;
       });
 
@@ -1717,14 +1402,12 @@
                  ))}
              </div>
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             {filteredDecks.map(d => {
               const cmds = d.cards.filter(c => c.isCommander);
               let mainImg = '';
               if (cmds.length > 0 && cmds[0]) mainImg = cmds[0].proxyImage || cmds[0].image;
               else if (d.cards[0]) mainImg = d.cards[0].proxyImage || d.cards[0].image;
-
               return (
                 <div key={d.id} className="bg-gray-800/90 backdrop-blur-sm rounded-xl border border-gray-600 overflow-hidden shadow-xl flex flex-col">
                    <div className="h-24 bg-gray-900 relative">
@@ -1755,35 +1438,27 @@
 
     const DeckAnalysis = ({deck, navigate}) => {
       const [showQR, setShowQR] = useState(false);
-
       if(!deck) return null;
 
       const cmds = deck.cards.filter(c => c.isCommander);
       const cmdName = cmds.length > 0 ? cmds[0].name : "Nessun Comandante Selezionato";
-      
       const totalCards = deck.cards.filter(c => !c.isSideboard && !c.isCompanion).length;
       const lands = deck.cards.filter(c => c.type && c.type.toLowerCase().includes('land') && !c.isSideboard && !c.isCompanion).length;
       const avgCMC = deck.cards.filter(c => !c.isSideboard && !c.isCompanion).reduce((acc, c) => acc + (c.cmc || 0), 0) / (totalCards || 1);
 
       const curve = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, '6+':0};
-      let maxCurve = 0;
-      const colorCounts = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+      let maxCurve = 0; const colorCounts = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
       
       deck.cards.forEach(c => {
          if(c.isSideboard || c.isCompanion) return;
          if(c.type && !c.type.toLowerCase().includes('land')) {
-            let cmc = c.cmc || 0;
-            if (cmc >= 6) curve['6+']++; else curve[cmc]++;
+            let cmc = c.cmc || 0; if (cmc >= 6) curve['6+']++; else curve[cmc]++;
          }
-         if (c.colors && c.colors.length > 0) {
-            c.colors.forEach(col => { if(colorCounts[col] !== undefined) colorCounts[col]++; });
-         } else if (c.type && !c.type.toLowerCase().includes('land')) {
-            colorCounts['C']++;
-         }
+         if (c.colors && c.colors.length > 0) { c.colors.forEach(col => { if(colorCounts[col] !== undefined) colorCounts[col]++; }); } 
+         else if (c.type && !c.type.toLowerCase().includes('land')) { colorCounts['C']++; }
       });
       Object.values(curve).forEach(v => { if(v > maxCurve) maxCurve = v; });
-      let maxColor = 0;
-      Object.values(colorCounts).forEach(v => { if(v > maxColor) maxColor = v; });
+      let maxColor = 0; Object.values(colorCounts).forEach(v => { if(v > maxColor) maxColor = v; });
 
       const formatEdhrec = (name) => name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
       const openEdhrec = () => {
@@ -1792,69 +1467,30 @@
       };
 
       const listText = deck.cards.map(c => `1 ${c.name}`).join('\n');
-
       const copyPrompt = () => {
-         const prompt = `Agisci come un Master professionista e Deckbuilder esperto di Magic: The Gathering.
-Formato: ${deck.format || 'Commander'}. ${deck.format==='commander'? `Comandante: ${cmdName}.`:''}
-Analizza curva di mana, banlist e dammi consigli su cosa tagliare e aggiungere.
-Lista:
-${listText}`;
-         navigator.clipboard.writeText(prompt);
-         alert("Prompt copiato! Incollalo su ChatGPT o Gemini.");
+         const prompt = `Agisci come un Master professionista e Deckbuilder esperto di Magic: The Gathering.\nFormato: ${deck.format || 'Commander'}. ${deck.format==='commander'? `Comandante: ${cmdName}.`:''}\nAnalizza curva di mana, banlist e dammi consigli su cosa tagliare e aggiungere.\nLista:\n${listText}`;
+         navigator.clipboard.writeText(prompt); alert("Prompt copiato! Incollalo su ChatGPT o Gemini.");
       };
-
-      const copyList = () => {
-         navigator.clipboard.writeText(listText);
-         alert("Lista carte copiata!");
-      };
+      const copyList = () => { navigator.clipboard.writeText(listText); alert("Lista carte copiata!"); };
 
       const shareDeck = async () => {
          const shareData = { title: `Mazzo MTG: ${deck.name}`, text: `Ecco il mio mazzo "${deck.name}":\n\n${listText}`, };
-         if (navigator.share) {
-            try { await navigator.share(shareData); } catch(e) {}
-         } else {
-            copyList(); alert("Copiato negli appunti! Ora puoi incollarlo dove vuoi.");
-         }
+         if (navigator.share) { try { await navigator.share(shareData); } catch(e) {} } 
+         else { copyList(); alert("Copiato negli appunti! Ora puoi incollarlo dove vuoi."); }
       };
 
       const generateQR = () => {
          if(window.QRCode) {
             window.QRCode.toDataURL(listText, { errorCorrectionLevel: 'L', width: 250, margin: 2 }, function (err, url) {
-               if (err) {
-                  alert("Errore: la lista è troppo lunga per un singolo QR code! Prova a condividerla via WhatsApp.");
-                  console.error(err);
-               } else {
-                  const img = new Image();
-                  img.src = url;
-                  img.className = "mb-4 border-4 border-gray-200 rounded";
-                  
-                  const modal = document.createElement("div");
-                  modal.className = "fixed inset-0 bg-black/95 z-[9999] flex flex-col items-center justify-center p-4 animate-fade";
-                  modal.onclick = () => document.body.removeChild(modal);
-                  
-                  const container = document.createElement("div");
-                  container.className = "bg-white p-6 rounded-xl flex flex-col items-center shadow-2xl";
-                  container.onclick = (e) => e.stopPropagation();
-                  
-                  const title = document.createElement("h3");
-                  title.className = "text-black font-black text-xl mb-2 text-center";
-                  title.innerText = "QR Code Mazzo";
-                  
-                  const sub = document.createElement("p");
-                  sub.className = "text-gray-600 text-xs mb-4 text-center font-bold";
-                  sub.innerText = "Fai inquadrare questo codice dalla fotocamera di un amico. Copierà la lista in automatico!";
-                  
-                  const btn = document.createElement("button");
-                  btn.className = "w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-md";
-                  btn.innerText = "Chiudi";
-                  btn.onclick = () => document.body.removeChild(modal);
-                  
-                  container.appendChild(title);
-                  container.appendChild(sub);
-                  container.appendChild(img);
-                  container.appendChild(btn);
-                  modal.appendChild(container);
-                  document.body.appendChild(modal);
+               if (err) { alert("Errore: la lista è troppo lunga per un singolo QR code! Prova a condividerla via WhatsApp."); } 
+               else {
+                  const img = new Image(); img.src = url; img.className = "mb-4 border-4 border-gray-200 rounded";
+                  const modal = document.createElement("div"); modal.className = "fixed inset-0 bg-black/95 z-[9999] flex flex-col items-center justify-center p-4 animate-fade"; modal.onclick = () => document.body.removeChild(modal);
+                  const container = document.createElement("div"); container.className = "bg-white p-6 rounded-xl flex flex-col items-center shadow-2xl"; container.onclick = (e) => e.stopPropagation();
+                  const title = document.createElement("h3"); title.className = "text-black font-black text-xl mb-2 text-center"; title.innerText = "QR Code Mazzo";
+                  const sub = document.createElement("p"); sub.className = "text-gray-600 text-xs mb-4 text-center font-bold"; sub.innerText = "Fai inquadrare questo codice dalla fotocamera di un amico. Copierà la lista in automatico!";
+                  const btn = document.createElement("button"); btn.className = "w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-md"; btn.innerText = "Chiudi"; btn.onclick = () => document.body.removeChild(modal);
+                  container.appendChild(title); container.appendChild(sub); container.appendChild(img); container.appendChild(btn); modal.appendChild(container); document.body.appendChild(modal);
                }
             });
          } else { alert("Libreria QR non caricata."); }
@@ -1863,7 +1499,6 @@ ${listText}`;
       return (
          <div className="max-w-2xl mx-auto space-y-4">
            <button onClick={() => navigate('mydecks')} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded font-bold mb-2 shadow transition-colors">⬅ Indietro ai Mazzi</button>
-           
            <div className="bg-gray-800/90 p-6 rounded-xl border border-gray-600 shadow-xl backdrop-blur-sm">
              <h2 className="text-3xl font-black text-white mb-1 drop-shadow-md">{deck.name}</h2>
              <p className="text-gray-300 font-bold mb-6">Formato: <span className="text-blue-400 uppercase">{deck.format || 'Commander'}</span></p>
@@ -1878,7 +1513,7 @@ ${listText}`;
                   <p className="text-2xl font-black text-white">{lands}</p>
                </div>
                <div className="bg-gray-900 p-2 rounded-lg border border-gray-700 shadow-inner">
-                  <p className="text-xs text-gray-400 font-bold uppercase">CMC Medio</p>
+                  <p className="text-xs text-gray-400 font-bold uppercase">CMC</p>
                   <p className="text-2xl font-black text-blue-400">{avgCMC.toFixed(2)}</p>
                </div>
              </div>
@@ -1899,7 +1534,6 @@ ${listText}`;
                     })}
                  </div>
                </div>
-
                <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner">
                  <h3 className="text-sm font-bold text-purple-400 mb-4 text-center uppercase">Devozione Colori</h3>
                  <div className="flex items-end gap-2 h-28">
@@ -1923,27 +1557,11 @@ ${listText}`;
              </div>
 
              <div className="space-y-3">
-               <button onClick={shareDeck} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-[0_0_10px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 transition-all">
-                 📲 Invia ad un Amico (WhatsApp / Social)
-               </button>
-               
-               <button onClick={generateQR} className="w-full bg-gray-100 hover:bg-white text-black font-bold py-4 rounded-xl shadow-[0_0_10px_rgba(255,255,255,0.4)] flex items-center justify-center gap-2 transition-all">
-                 🔲 Mostra QR Code Mazzo
-               </button>
-
-               {deck.format === 'commander' && (
-                 <button onClick={openEdhrec} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all mt-6">
-                   🛡️ Sinergie su EDHREC
-                 </button>
-               )}
-               
-               <button onClick={copyPrompt} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">
-                 🤖 Copia Prompt IA (Gemini/ChatGPT)
-               </button>
-               
-               <button onClick={copyList} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl shadow border border-gray-600 flex items-center justify-center gap-2 mt-2 transition-colors">
-                 📋 Copia solo Lista Testuale
-               </button>
+               <button onClick={shareDeck} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-[0_0_10px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2 transition-all">📲 Invia ad un Amico</button>
+               <button onClick={generateQR} className="w-full bg-gray-100 hover:bg-white text-black font-bold py-4 rounded-xl shadow-[0_0_10px_rgba(255,255,255,0.4)] flex items-center justify-center gap-2 transition-all">🔲 Mostra QR Code</button>
+               {deck.format === 'commander' && ( <button onClick={openEdhrec} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all mt-6">🛡️ Sinergie su EDHREC</button> )}
+               <button onClick={copyPrompt} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all">🤖 Copia Prompt IA</button>
+               <button onClick={copyList} className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-xl shadow border border-gray-600 flex items-center justify-center gap-2 mt-2 transition-colors">📋 Copia solo Lista Testuale</button>
              </div>
            </div>
          </div>
@@ -1982,27 +1600,21 @@ ${listText}`;
       const startGame = () => {
         let newPlayers = [];
         for(let i=1; i<=numPlayers; i++) {
-          let cmdDmg = {};
-          for(let j=1; j<=numPlayers; j++) { if(i!==j) cmdDmg[`P${j}`] = 0; }
+          let cmdDmg = {}; for(let j=1; j<=numPlayers; j++) { if(i!==j) cmdDmg[`P${j}`] = 0; }
           newPlayers.push({ id: `P${i}`, name: `Player ${i}`, life: startLife, poison: 0, cmdCasts: 0, emblems: 0, immune: false, cmdDmg: cmdDmg, bgUrl: null, mana: {W:0, U:0, B:0, R:0, G:0, C:0} });
         }
-        setPlayers(newPlayers);
-        setView('game_active');
+        setPlayers(newPlayers); setView('game_active');
       };
 
       const updateStat = (playerId, stat, amount, opponentId = null) => {
         setPlayers(prev => prev.map(p => {
           if (p.id !== playerId) return p;
-          
           if (opponentId && stat === 'cmdDmg') {
              let newDmg = { ...p.cmdDmg };
-             let prevVal = newDmg[opponentId] || 0;
-             newDmg[opponentId] = Math.max(0, prevVal + amount);
-             
+             let prevVal = newDmg[opponentId] || 0; newDmg[opponentId] = Math.max(0, prevVal + amount);
              let diff = newDmg[opponentId] - prevVal;
              return { ...p, cmdDmg: newDmg, life: Math.max(0, p.life - diff) };
           }
-          
           return { ...p, [stat]: Math.max(0, p[stat] + amount) };
         }));
       };
@@ -2010,8 +1622,7 @@ ${listText}`;
       const updateMana = (playerId, color, amount) => {
         setPlayers(prev => prev.map(p => {
            if(p.id !== playerId) return p;
-           let newMana = {...p.mana};
-           newMana[color] = Math.max(0, newMana[color] + amount);
+           let newMana = {...p.mana}; newMana[color] = Math.max(0, newMana[color] + amount);
            return {...p, mana: newMana};
         }));
       }
@@ -2030,8 +1641,7 @@ ${listText}`;
           <div className="mb-6">
             <label className="block text-gray-300 font-bold mb-2">Punti Vita Iniziali</label>
             <select value={startLife} onChange={e => setStartLife(parseInt(e.target.value))} className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white text-center text-xl font-bold outline-none">
-              <option value={40}>40 (Commander)</option>
-              <option value={20}>20 (Standard)</option>
+              <option value={40}>40 (Commander)</option><option value={20}>20 (Standard)</option>
             </select>
           </div>
           <button onClick={startGame} className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-4 rounded-xl text-xl shadow-[0_0_15px_rgba(220,38,38,0.5)] transition-all">INIZIA</button>
@@ -2039,7 +1649,6 @@ ${listText}`;
       );
 
       const gridClass = players.length <= 2 ? 'grid-cols-2 grid-rows-1' : (players.length <= 4 ? 'grid-cols-2 grid-rows-2' : 'grid-cols-3 grid-rows-2');
-
       return (
         <div className="fixed inset-0 z-[100] bg-black p-1 flex flex-col h-[100dvh] w-[100dvw]">
           <button onClick={() => setView('game')} className="absolute top-2 left-2 z-[110] bg-black/80 px-3 py-2 rounded-full text-white text-xs border border-white/20 font-bold shadow-lg">✖ Esci</button>
@@ -2058,36 +1667,26 @@ ${listText}`;
       
       let isDead = false;
       if (!player.immune) {
-         if (player.life <= 0) isDead = true;
-         if (player.poison >= 10) isDead = true;
+         if (player.life <= 0) isDead = true; if (player.poison >= 10) isDead = true;
          Object.keys(player.cmdDmg).forEach(key => { if (player.cmdDmg[key] >= 21) isDead = true; });
       }
 
       const searchCmdBg = () => {
          if(!cmdQuery.trim()) return;
-         fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cmdQuery.trim())}`)
-            .then(res => res.json())
-            .then(c => {
+         fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cmdQuery.trim())}`).then(res => res.json()).then(c => {
                if(c.id) {
                  let imgUrl = c.image_uris ? c.image_uris.art_crop : (c.card_faces && c.card_faces.length > 0 ? c.card_faces[0].image_uris.art_crop : null);
-                 if(imgUrl) updatePlayerConfig(player.id, 'bgUrl', imgUrl);
-                 setCmdQuery("");
+                 if(imgUrl) updatePlayerConfig(player.id, 'bgUrl', imgUrl); setCmdQuery("");
                } else alert("Comandante non trovato");
             }).catch(e => console.error(e));
       };
 
-      const saveName = () => {
-         setIsEditingName(false);
-         if(tempName.trim() !== "") updatePlayerConfig(player.id, 'name', tempName.trim());
-         else setTempName(player.name);
-      };
+      const saveName = () => { setIsEditingName(false); if(tempName.trim() !== "") updatePlayerConfig(player.id, 'name', tempName.trim()); else setTempName(player.name); };
 
       const PlayerHeader = () => (
          <div className="flex justify-between items-center bg-black/60 backdrop-blur-sm p-2 z-30 border-b border-gray-700 shadow-sm h-[15%] min-h-[30px]">
             <div className="flex items-center gap-2 overflow-hidden flex-1">
-               {isEditingName ? (
-                  <input autoFocus type="text" value={tempName} onChange={e => setTempName(e.target.value)} onBlur={saveName} onKeyDown={e => e.key === 'Enter' && saveName()} className="bg-gray-700 text-white text-xs px-1 py-0.5 rounded outline-none w-24 border border-gray-500" />
-               ) : (
+               {isEditingName ? ( <input autoFocus type="text" value={tempName} onChange={e => setTempName(e.target.value)} onBlur={saveName} onKeyDown={e => e.key === 'Enter' && saveName()} className="bg-gray-700 text-white text-xs px-1 py-0.5 rounded outline-none w-24 border border-gray-500" /> ) : (
                   <span onClick={() => setIsEditingName(true)} className="font-bold text-white text-sm drop-shadow-md truncate cursor-pointer">{player.name} ✎</span>
                )}
                {player.poison > 0 && <span className="text-green-400 text-[11px] font-black drop-shadow-md whitespace-nowrap">💧{player.poison}</span>}
@@ -2114,10 +1713,8 @@ ${listText}`;
                 </div>
               </div>
               <div className="bg-gray-800 p-1 rounded-lg border border-gray-700">
-                <p className="text-[10px] text-red-400 font-bold mb-1 uppercase text-center">⚔️ Danni Cmd Da (Scala la Vita):</p>
-                {opponents.map(opp => (
-                   <StatRow key={opp.id} label={opp.name} value={player.cmdDmg[opp.id]} onSub={() => updateStat(player.id, 'cmdDmg', -1, opp.id)} onAdd={() => updateStat(player.id, 'cmdDmg', 1, opp.id)} />
-                ))}
+                <p className="text-[10px] text-red-400 font-bold mb-1 uppercase text-center">⚔️ Danni Cmd Da:</p>
+                {opponents.map(opp => ( <StatRow key={opp.id} label={opp.name} value={player.cmdDmg[opp.id]} onSub={() => updateStat(player.id, 'cmdDmg', -1, opp.id)} onAdd={() => updateStat(player.id, 'cmdDmg', 1, opp.id)} /> ))}
               </div>
               <div className="space-y-1 bg-gray-800 p-1 rounded-lg border border-gray-700">
                 <StatRow label="💧 Veleno" value={player.poison} onSub={() => updateStat(player.id, 'poison', -1)} onAdd={() => updateStat(player.id, 'poison', 1)} />
@@ -2125,9 +1722,7 @@ ${listText}`;
                 <StatRow label="🛡️ Emblemi" value={player.emblems} onSub={() => updateStat(player.id, 'emblems', -1)} onAdd={() => updateStat(player.id, 'emblems', 1)} />
               </div>
             </div>
-            <button onClick={() => toggleImmunity(player.id)} className={`w-full py-1 mt-auto text-[10px] font-bold shadow-md transition-colors ${player.immune ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 border-t border-gray-600 hover:bg-gray-700'}`}>
-              {player.immune ? '🛡️ Immunità Attiva' : 'Attiva Immunità'}
-            </button>
+            <button onClick={() => toggleImmunity(player.id)} className={`w-full py-1 mt-auto text-[10px] font-bold shadow-md transition-colors ${player.immune ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 border-t border-gray-600 hover:bg-gray-700'}`}>{player.immune ? '🛡️ Immunità Attiva' : 'Attiva Immunità'}</button>
           </div>
         );
       }
@@ -2158,9 +1753,7 @@ ${listText}`;
           {player.bgUrl && <img src={player.bgUrl} className="absolute inset-0 w-full h-full object-contain p-2 opacity-50 pointer-events-none" />}
           {isDead && <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-40 pointer-events-none z-20">💀</div>}
           {player.immune && <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-30 pointer-events-none text-blue-500 drop-shadow-lg z-20">🛡️</div>}
-          
           <PlayerHeader />
-          
           <div className="flex-1 flex items-center justify-between px-1 z-30 h-[85%] pb-1">
             <button onClick={() => updateStat(player.id, 'life', -1)} className="w-12 h-full flex items-center justify-center text-4xl font-bold text-red-500 active:bg-red-500/30 rounded-l transition-colors drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">-</button>
             <div className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_4px_6px_rgba(0,0,0,1)]">{player.life}</div>
@@ -2188,15 +1781,10 @@ ${listText}`;
 
       const rollDice = () => {
         let rolls = []; let max = 0;
-        for(let i=1; i<=numPlayers; i++) {
-          const roll = Math.floor(Math.random() * 20) + 1;
-          rolls.push({ player: `Player ${i}`, roll: roll });
-          if(roll > max) max = roll;
-        }
+        for(let i=1; i<=numPlayers; i++) { const roll = Math.floor(Math.random() * 20) + 1; rolls.push({ player: `Player ${i}`, roll: roll }); if(roll > max) max = roll; }
         setResults(rolls);
         const winners = rolls.filter(r => r.roll === max);
-        if(winners.length === 1) setWinnerMessage(`🎉 Inizia: ${winners[0].player}!`);
-        else setWinnerMessage(`Pareggio tra: ${winners.map(w=>w.player).join(', ')}. Ritirate!`);
+        if(winners.length === 1) setWinnerMessage(`🎉 Inizia: ${winners[0].player}!`); else setWinnerMessage(`Pareggio tra: ${winners.map(w=>w.player).join(', ')}. Ritirate!`);
       };
 
       return (
@@ -2209,8 +1797,7 @@ ${listText}`;
             <div className="space-y-2 animate-fade">
               {results.map((r, i) => (
                 <div key={i} className="flex justify-between p-3 bg-gray-900 rounded border border-gray-700 shadow-inner">
-                  <span className="font-bold text-gray-300 text-lg">{r.player}</span>
-                  <span className={`font-black text-xl ${r.roll === 20 ? 'text-green-400' : (r.roll === 1 ? 'text-red-400' : 'text-white')}`}>{r.roll}</span>
+                  <span className="font-bold text-gray-300 text-lg">{r.player}</span><span className={`font-black text-xl ${r.roll === 20 ? 'text-green-400' : (r.roll === 1 ? 'text-red-400' : 'text-white')}`}>{r.roll}</span>
                 </div>
               ))}
               <div className="mt-4 p-4 bg-green-900/40 border border-green-500 rounded-lg text-center font-bold text-green-400 text-lg shadow-md">{winnerMessage}</div>
@@ -2223,16 +1810,13 @@ ${listText}`;
     const RulesAI = () => {
       const [question, setQuestion] = useState("");
       const searchRuling = () => { if(question) window.open(`https://www.google.com/search?q=MTG+Ruling+${encodeURIComponent(question)}`, '_blank'); };
-
       return (
         <div className="max-w-md mx-auto space-y-4">
           <div className="bg-gray-800/90 p-6 rounded-xl border border-gray-600 mt-4 text-center backdrop-blur-sm shadow-xl">
             <h2 className="text-3xl font-black mb-4 text-green-500 drop-shadow-md">Judge Desk</h2>
             <p className="text-sm text-gray-300 mb-6 font-semibold">Cerca il tuo dubbio tra i Ruling Ufficiali o contatta un Arbitro vero.</p>
-            
             <textarea className="w-full h-24 bg-gray-900 border border-gray-600 rounded p-3 text-white mb-4 font-semibold outline-none focus:border-blue-500" placeholder="Scrivi il tuo dubbio sulla combo..." value={question} onChange={(e) => setQuestion(e.target.value)}></textarea>
             <button onClick={searchRuling} className="w-full bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-xl shadow-lg mb-6 flex justify-center items-center gap-2 transition-all">🔍 Cerca Ruling Online</button>
-
             <div className="border-t border-gray-700 pt-6 space-y-3">
                <a href="https://magic.wizards.com/en/rules" target="_blank" className="block w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 rounded-lg shadow border border-gray-600 transition-colors">📖 PDF Regole Ufficiali</a>
                <a href="https://chat.magicjudges.org/mtgrules/" target="_blank" className="block w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg shadow border border-blue-500 transition-colors">💬 Chat Live Judge DCI (24/7)</a>
