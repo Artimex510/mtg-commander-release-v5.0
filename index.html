@@ -39,7 +39,7 @@
 
     const Icons = {
       Menu: () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"/></svg>,
-      Home: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>,
+      Home: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 001 1m-6 0h6"/></svg>,
       Back: () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
     };
 
@@ -117,6 +117,7 @@
                 <video ref={videoRef} playsInline onEnded={finishIntro} onError={finishIntro} className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${introState === 'playing' ? 'opacity-100 z-10' : 'opacity-0 z-[-1]'}`}>
                    <source src="intro.mp4" type="video/mp4" />
                 </video>
+
                 {introState === 'initial' && (
                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 animate-fade z-20">
                       <img src="mtg-bg.jpg" className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none" />
@@ -125,6 +126,7 @@
                       <button onClick={finishIntro} className="relative z-10 mt-8 text-gray-400 font-bold underline px-6 py-2">Skip Intro</button>
                    </div>
                 )}
+                
                 {introState === 'playing' && (
                    <button onClick={finishIntro} className="absolute top-8 right-6 z-[210] bg-black/60 text-white px-4 py-2 rounded-full font-bold border border-white/30 shadow-lg backdrop-blur-sm active:scale-95 animate-fade">Skip ⏭</button>
                 )}
@@ -133,6 +135,7 @@
 
           {introState === 'finished' && (
             <div className="min-h-screen bg-gray-900/85 backdrop-blur-sm flex flex-col animate-fade">
+              
               {(view !== 'game_active' && view !== 'playtester_active') && (
                 <header className="bg-gray-900/95 border-b border-gray-700 p-4 flex justify-between items-center fixed top-0 w-full z-50 shadow-md no-print">
                   <button onClick={() => setMenuOpen(true)} className="text-gray-300 hover:text-white"><Icons.Menu /></button>
@@ -151,12 +154,15 @@
                       <MenuBtn icon="📚" text="I Miei Mazzi" onClick={() => navigate('mydecks')} />
                       <MenuBtn icon="🃏" text="Testa Mazzo" onClick={() => navigate('playtester')} />
                       <MenuBtn icon="✨" text="Proxy Creator" onClick={() => navigate('proxycreator')} />
+                      <MenuBtn icon="🖼️" text="Le Mie Proxy" onClick={() => navigate('myproxies')} />
                       <MenuBtn icon="⚔️" text="Life Tracker" onClick={() => navigate('game')} />
                       <MenuBtn icon="🎲" text="Lancia Dado" onClick={() => navigate('dice')} />
                       <MenuBtn icon="⚖️" text="Regole & Judge" onClick={() => navigate('rules')} />
+                      
                       <div className="pt-4 mt-4 border-t border-gray-700">
                          <MenuBtn icon="💾" text="Backup & Sync" onClick={() => navigate('backup')} />
                       </div>
+
                       <div className="pt-2 mt-2 border-t border-gray-700">
                          <p className="text-xs text-gray-500 font-bold mb-3 uppercase tracking-wider">🌐 Import / Siti Esterni</p>
                          <MenuBtn icon="M" text="Moxfield" onClick={() => window.open('https://www.moxfield.com', '_blank')} />
@@ -172,6 +178,7 @@
                 {view === 'home' && <HomeView navigate={navigate} />}
                 {view === 'deckbuilder' && <DeckBuilder navigate={navigate} activeDeck={activeDeck} />}
                 {view === 'mydecks' && <MyDecks navigate={navigate} />}
+                {view === 'myproxies' && <MyProxies navigate={navigate} />}
                 {view === 'viewdeck' && <DeckViewer deck={activeDeck} navigate={navigate} />}
                 {view === 'analysis' && <DeckAnalysis deck={activeDeck} navigate={navigate} />}
                 {view === 'proxycreator' && <ProxyEditor isStandalone={true} />}
@@ -217,6 +224,90 @@
       </button>
     );
 
+    const BackupView = ({navigate}) => {
+      const exportData = () => {
+         const data = { decks: JSON.parse(localStorage.getItem('mtg_decks') || '[]'), proxies: JSON.parse(localStorage.getItem('mtg_proxies') || '[]') };
+         const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+         const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `MTG_Companion_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
+      };
+      const importData = (e) => {
+         const file = e.target.files[0]; if(!file) return; const reader = new FileReader();
+         reader.onload = (event) => {
+             try {
+                 const data = JSON.parse(event.target.result);
+                 if(data.decks) localStorage.setItem('mtg_decks', JSON.stringify(data.decks));
+                 if(data.proxies) localStorage.setItem('mtg_proxies', JSON.stringify(data.proxies));
+                 alert("Dati Ripristinati con successo! Ora hai tutti i mazzi."); navigate('mydecks');
+             } catch(err) { alert("Errore: Il file di backup sembra corrotto."); }
+         };
+         reader.readAsText(file);
+      };
+
+      return (
+         <div className="max-w-md mx-auto bg-gray-800/90 p-6 rounded-xl shadow-lg border border-gray-600 mt-4 backdrop-blur-sm space-y-6">
+           <h2 className="text-3xl font-black text-center text-blue-400 drop-shadow-md">Backup & Sync</h2>
+           <p className="text-gray-300 text-sm font-semibold text-center leading-snug">Usa questa funzione per passare istantaneamente tutti i tuoi mazzi e le tue proxy dal Telefono al PC, o viceversa.</p>
+           <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner">
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">1. Esporta Dati</h3>
+              <p className="text-xs text-gray-400 mb-4">Salva l'intero database sul tuo dispositivo. Invia questo file su Google Drive, Telegram o Email.</p>
+              <button onClick={exportData} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-colors">
+                 💾 SCARICA BACKUP (.json)
+              </button>
+           </div>
+           <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner">
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">2. Importa Dati</h3>
+              <p className="text-xs text-red-400 mb-4 font-bold">⚠️ ATTENZIONE: Caricando un file, sovrascriverai i mazzi attuali su questo dispositivo con quelli del backup.</p>
+              <label className="block w-full bg-green-600 hover:bg-green-500 text-center py-4 rounded-xl cursor-pointer font-black text-white shadow-[0_0_15px_rgba(22,163,74,0.4)] transition-colors">
+                 📂 CARICA BACKUP (.json)
+                 <input type="file" accept=".json" className="hidden" onChange={importData} />
+              </label>
+           </div>
+         </div>
+      );
+    };
+
+    const MyProxies = ({navigate}) => {
+      const [proxies, setProxies] = useState([]);
+      
+      useEffect(() => { setProxies(JSON.parse(localStorage.getItem('mtg_proxies') || '[]')); }, []);
+
+      const deleteProxy = (id) => {
+         if(confirm("Vuoi eliminare questa Proxy? Verrà rimossa dal database (ma resterà nei mazzi dove l'hai già applicata finché non li modifichi).")) {
+             const newProxies = proxies.filter(p => p.id !== id);
+             localStorage.setItem('mtg_proxies', JSON.stringify(newProxies));
+             setProxies(newProxies);
+         }
+      };
+
+      if (proxies.length === 0) return (
+         <div className="max-w-md mx-auto mt-10">
+            <div className="bg-gray-800/90 p-6 rounded-xl border border-gray-700 text-center shadow-lg">
+               <p className="text-gray-400 font-bold mb-4">Non hai ancora creato nessuna Proxy.</p>
+               <button onClick={() => navigate('proxycreator')} className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-6 rounded shadow transition-colors">Crea Proxy</button>
+            </div>
+         </div>
+      );
+
+      return (
+         <div className="max-w-3xl mx-auto space-y-4 animate-fade">
+           <div className="bg-gray-800/90 p-4 rounded-xl border border-gray-600 shadow-md backdrop-blur-sm flex justify-between items-center mt-4">
+              <h2 className="text-xl font-bold text-purple-400">Le Mie Proxy ({proxies.length})</h2>
+              <button onClick={() => navigate('proxycreator')} className="bg-purple-600 px-3 py-1 rounded text-white font-bold shadow text-sm">+ Crea</button>
+           </div>
+           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {proxies.map(p => (
+                 <div key={p.id} className="bg-gray-800 rounded-xl border border-gray-600 overflow-hidden shadow-xl flex flex-col relative">
+                    <img src={p.proxyImage} className="w-full object-contain" style={{ aspectRatio: '63/88' }} />
+                    <button onClick={() => deleteProxy(p.id)} className="absolute top-2 right-2 bg-red-600/90 text-white w-8 h-8 rounded-full font-black shadow-lg flex items-center justify-center backdrop-blur hover:bg-red-500 active:scale-95 transition-all">✖</button>
+                    <div className="bg-gray-900 p-2 text-center text-xs font-bold text-gray-300 truncate">{p.name}</div>
+                 </div>
+              ))}
+           </div>
+         </div>
+      );
+    };
+
+    // --- PLAYTESTER SANDBOX (Tavolo Virtuale Reintegrato) ---
     const PlaytesterSandbox = ({view, setView, navigate}) => {
        const [decks, setDecks] = useState([]);
        const [selectedDeckId, setSelectedDeckId] = useState("");
@@ -231,8 +322,7 @@
           const d = decks.find(x => x.id.toString() === selectedDeckId);
           if(!d) return;
 
-          let initialLibrary = [];
-          let initialCmdZone = [];
+          let initialLibrary = []; let initialCmdZone = [];
           
           d.cards.forEach(c => {
              if(c.isSideboard && !c.isCompanion) return; 
@@ -264,12 +354,7 @@
        };
 
        const drawOne = () => { if(!gameState || gameState.library.length === 0) return; doDraw(1, gameState.library, gameState.hand); };
-
-       const passTurn = () => {
-          if(!gameState) return;
-          setGameState(prev => ({ ...prev, turn: prev.turn + 1, battlefield: prev.battlefield.map(c => ({...c, isTapped: false})) }));
-          drawOne();
-       };
+       const passTurn = () => { if(!gameState) return; setGameState(prev => ({ ...prev, turn: prev.turn + 1, battlefield: prev.battlefield.map(c => ({...c, isTapped: false})) })); drawOne(); };
 
        const mulligan = () => {
           if(!gameState) return;
@@ -279,44 +364,33 @@
           let cardsToBottom = gameState.isCommander ? (newMull > 1 ? newMull - 1 : 0) : newMull;
 
           setGameState(prev => ({ ...prev, mulliganCount: newMull, library: allCards, hand: [], battlefield: [], graveyard: [], exile: [] }));
-          setTimeout(() => {
-             doDraw(7, allCards, []);
-             if(cardsToBottom > 0) alert(`Mulligan a 7 effettuato. Metti ${cardsToBottom} carte in fondo al mazzo!`);
-          }, 100);
+          setTimeout(() => { doDraw(7, allCards, []); if(cardsToBottom > 0) alert(`Mulligan a 7 effettuato. Metti ${cardsToBottom} carte in fondo al mazzo!`); }, 100);
        };
 
        const shuffleLibrary = () => {
           if(!gameState) return;
           let lib = [...gameState.library];
           for (let i = lib.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lib[i], lib[j]] = [lib[j], lib[i]]; }
-          setGameState(prev => ({...prev, library: lib}));
-          alert("Mazzo mischiato!");
+          setGameState(prev => ({...prev, library: lib})); alert("Mazzo mischiato!");
        };
 
        const moveCard = (uid, sourceZone, destZone) => {
-          if(!gameState) return;
-          let cardToMove = null;
+          if(!gameState) return; let cardToMove = null;
           let newSource = gameState[sourceZone].filter(c => { if(c.uid === uid) { cardToMove = c; return false; } return true; });
           if(!cardToMove) return; cardToMove.isTapped = false;
           let newGameState = { ...gameState, [sourceZone]: newSource };
 
           if(destZone === 'libraryBottom') {
-             let lib = sourceZone === 'library' ? [...newSource] : [...gameState.library];
-             lib.push(cardToMove); newGameState.library = lib;
+             let lib = sourceZone === 'library' ? [...newSource] : [...gameState.library]; lib.push(cardToMove); newGameState.library = lib;
           } else if(destZone === 'libraryTop') {
-             let lib = sourceZone === 'library' ? [...newSource] : [...gameState.library];
-             lib.unshift(cardToMove); newGameState.library = lib;
+             let lib = sourceZone === 'library' ? [...newSource] : [...gameState.library]; lib.unshift(cardToMove); newGameState.library = lib;
           } else {
-             let newDest = sourceZone === destZone ? [...newSource] : [...gameState[destZone]];
-             newDest.push(cardToMove); newGameState[destZone] = newDest;
+             let newDest = sourceZone === destZone ? [...newSource] : [...gameState[destZone]]; newDest.push(cardToMove); newGameState[destZone] = newDest;
           }
           setGameState(newGameState); setShowCardModal(null); setBrowsingZone(null);
        };
 
-       const toggleTap = (uid) => {
-          if(!gameState) return;
-          setGameState(prev => ({ ...prev, battlefield: prev.battlefield.map(c => c.uid === uid ? {...c, isTapped: !c.isTapped} : c) }));
-       };
+       const toggleTap = (uid) => { if(!gameState) return; setGameState(prev => ({ ...prev, battlefield: prev.battlefield.map(c => c.uid === uid ? {...c, isTapped: !c.isTapped} : c) })); };
 
        if(view === 'playtester') {
           return (
@@ -334,7 +408,6 @@
              </div>
           );
        }
-
        if(!gameState) return null;
 
        return (
@@ -349,9 +422,8 @@
                       </div>
                    </div>
                    <div className="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 gap-3 content-start">
-                      {gameState[browsingZone].map(c => (
-                         <img key={c.uid} src={c.proxyImage || c.image || "mtg-bg.jpg"} onClick={() => setShowCardModal({card: c, zone: browsingZone})} className="w-full rounded shadow-lg cursor-pointer border border-gray-600 active:scale-95 transition-transform" />
-                      ))}
+                      {gameState[browsingZone].map(c => ( <img key={c.uid} src={c.proxyImage || c.image || "mtg-bg.jpg"} onClick={() => setShowCardModal({card: c, zone: browsingZone})} className="w-full rounded shadow-lg cursor-pointer border border-gray-600 active:scale-95 transition-transform" /> ))}
+                      {gameState[browsingZone].length === 0 && <p className="col-span-3 text-center text-gray-500 font-bold mt-10">Nessuna carta qui.</p>}
                    </div>
                 </div>
              )}
@@ -365,8 +437,8 @@
                          {showCardModal.zone === 'battlefield' && ( <button onClick={() => moveCard(showCardModal.card.uid, 'battlefield', 'hand')} className="col-span-2 bg-blue-600 text-white font-bold py-3 rounded shadow">👆 Riprendi in Mano</button> )}
                          {(showCardModal.zone === 'graveyard' || showCardModal.zone === 'exile' || showCardModal.zone === 'library') && (
                             <React.Fragment>
-                               <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'hand')} className="bg-blue-600 text-white font-bold py-3 rounded text-sm shadow">🖐 Mano</button>
-                               <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'battlefield')} className="bg-green-600 text-white font-bold py-3 rounded text-sm shadow">👇 Campo</button>
+                               <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'hand')} className="bg-blue-600 text-white font-bold py-3 rounded text-sm shadow">🖐 Metti in Mano</button>
+                               <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'battlefield')} className="bg-green-600 text-white font-bold py-3 rounded text-sm shadow">👇 Gioca Campo</button>
                             </React.Fragment>
                          )}
                          <button onClick={() => moveCard(showCardModal.card.uid, showCardModal.zone, 'graveyard')} className="bg-gray-600 text-white font-bold py-2 rounded text-xs">💀 Cimitero</button>
@@ -381,10 +453,7 @@
              <div className="bg-black/80 text-white p-2 flex justify-between items-center border-b border-green-700 shadow-md h-[10dvh]">
                 <button onClick={() => setView('playtester')} className="bg-red-600 px-3 py-1 rounded font-bold text-xs shadow">Esci</button>
                 <div className="text-center"><h3 className="font-black text-sm uppercase text-yellow-500">Turno {gameState.turn}</h3></div>
-                <div className="flex gap-1">
-                   <button onClick={mulligan} className="bg-orange-600 px-2 py-1 rounded font-bold text-xs shadow">Mulligan</button>
-                   <button onClick={passTurn} className="bg-blue-600 px-2 py-1 rounded font-bold text-xs shadow">Passa Turno</button>
-                </div>
+                <div className="flex gap-1"><button onClick={mulligan} className="bg-orange-600 px-2 py-1 rounded font-bold text-xs shadow">Mulligan</button><button onClick={passTurn} className="bg-blue-600 px-2 py-1 rounded font-bold text-xs shadow">Passa Turno</button></div>
              </div>
              <div className="bg-black/50 p-2 flex justify-between items-center h-[12dvh] overflow-x-auto gap-2">
                 <div className="flex gap-2 border-r border-green-800 pr-2 h-full items-center">
@@ -392,17 +461,9 @@
                 </div>
                 <div className="flex gap-2 pl-1 overflow-x-auto h-full items-center">
                    <button onClick={drawOne} className="h-full bg-indigo-900/80 rounded border border-indigo-500 flex items-center justify-center px-3 font-black shadow active:scale-95 transition-transform shrink-0">PESCA</button>
-                   <div className="h-full bg-blue-900 rounded border border-blue-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg" onClick={() => setBrowsingZone('library')}>
-                      <span className="text-[10px] font-bold text-blue-300">Mazzo</span><span className="font-black text-white">{gameState.library.length}</span>
-                   </div>
-                   <div className="h-full bg-gray-800 rounded border border-gray-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg" onClick={() => setBrowsingZone('graveyard')}>
-                      <span className="text-[10px] font-bold text-gray-400">Cimitero</span><span className="font-black text-white">{gameState.graveyard.length}</span>
-                   </div>
-                   {gameState.exile.length > 0 && (
-                     <div className="h-full bg-gray-300 rounded border border-gray-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg" onClick={() => setBrowsingZone('exile')}>
-                        <span className="text-[10px] font-bold text-gray-700">Esilio</span><span className="font-black text-black">{gameState.exile.length}</span>
-                     </div>
-                   )}
+                   <div className="h-full bg-blue-900 rounded border border-blue-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg" onClick={() => setBrowsingZone('library')}><span className="text-[10px] font-bold text-blue-300">Mazzo</span><span className="font-black text-white">{gameState.library.length}</span></div>
+                   <div className="h-full bg-gray-800 rounded border border-gray-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg" onClick={() => setBrowsingZone('graveyard')}><span className="text-[10px] font-bold text-gray-400">Cimitero</span><span className="font-black text-white">{gameState.graveyard.length}</span></div>
+                   {gameState.exile.length > 0 && (<div className="h-full bg-gray-300 rounded border border-gray-500 flex flex-col items-center justify-center px-2 cursor-pointer shrink-0 shadow-lg" onClick={() => setBrowsingZone('exile')}><span className="text-[10px] font-bold text-gray-700">Esilio</span><span className="font-black text-black">{gameState.exile.length}</span></div>)}
                 </div>
              </div>
              <div className="flex-1 bg-green-900/50 p-2 overflow-y-auto relative shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
@@ -417,55 +478,18 @@
                 </div>
              </div>
              <div className="h-[25dvh] bg-black/90 p-2 overflow-x-auto flex items-end gap-[-20px] pb-4 shadow-[0_-5px_15px_rgba(0,0,0,0.5)] z-10 pl-4">
-                {gameState.hand.map((c, i) => (
-                   <img key={c.uid} src={c.proxyImage || c.image || "mtg-bg.jpg"} onClick={() => setShowCardModal({card: c, zone: 'hand'})} className="h-full rounded-lg shadow-xl cursor-pointer hover:-translate-y-4 hover:z-20 transition-all border border-gray-700" style={{ marginLeft: i === 0 ? '0' : '-30px', transformOrigin: 'bottom center' }} />
-                ))}
+                {gameState.hand.map((c, i) => ( <img key={c.uid} src={c.proxyImage || c.image || "mtg-bg.jpg"} onClick={() => setShowCardModal({card: c, zone: 'hand'})} className="h-full rounded-lg shadow-xl cursor-pointer hover:-translate-y-4 hover:z-20 transition-all border border-gray-700" style={{ marginLeft: i === 0 ? '0' : '-30px', transformOrigin: 'bottom center' }} /> ))}
              </div>
           </div>
        );
     };
 
-    const BackupView = ({navigate}) => {
-      const exportData = () => {
-         const data = { decks: JSON.parse(localStorage.getItem('mtg_decks') || '[]'), proxies: JSON.parse(localStorage.getItem('mtg_proxies') || '[]') };
-         const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
-         const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `MTG_Companion_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
-      };
-      const importData = (e) => {
-         const file = e.target.files[0]; if(!file) return; const reader = new FileReader();
-         reader.onload = (event) => {
-             try {
-                 const data = JSON.parse(event.target.result);
-                 if(data.decks) localStorage.setItem('mtg_decks', JSON.stringify(data.decks));
-                 if(data.proxies) localStorage.setItem('mtg_proxies', JSON.stringify(data.proxies));
-                 alert("Dati Ripristinati!"); navigate('mydecks');
-             } catch(err) { alert("Errore file corrotto."); }
-         }; reader.readAsText(file);
-      };
-      return (
-         <div className="max-w-md mx-auto bg-gray-800/90 p-6 rounded-xl shadow-lg border border-gray-600 mt-4 backdrop-blur-sm space-y-6">
-           <h2 className="text-3xl font-black text-center text-blue-400 drop-shadow-md">Backup & Sync</h2>
-           <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner">
-              <h3 className="text-white font-bold mb-2 flex items-center gap-2">1. Esporta Dati</h3>
-              <button onClick={exportData} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-colors">💾 SCARICA BACKUP</button>
-           </div>
-           <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner">
-              <h3 className="text-white font-bold mb-2 flex items-center gap-2">2. Importa Dati</h3>
-              <label className="block w-full bg-green-600 hover:bg-green-500 text-center py-4 rounded-xl cursor-pointer font-black text-white shadow-[0_0_15px_rgba(22,163,74,0.4)] transition-colors">
-                 📂 CARICA BACKUP <input type="file" accept=".json" className="hidden" onChange={importData} />
-              </label>
-           </div>
-         </div>
-      );
-    };
-
+    // --- PROXY EDITOR ---
     const ProxyEditor = ({card, onClose, onSave, isStandalone}) => {
       const [baseQuery, setBaseQuery] = useState("");
       const [baseCard, setBaseCard] = useState(card ? {name: card.name, type: card.type, img: card.image, cmc: card.cmc} : null);
-      const [customName, setCustomName] = useState("");
-      const [customImg, setCustomImg] = useState("");
-      const [zoom, setZoom] = useState(1);
-      const [posX, setPosX] = useState(50); const [posY, setPosY] = useState(50);
+      const [customName, setCustomName] = useState(""); const [customImg, setCustomImg] = useState("");
+      const [zoom, setZoom] = useState(1); const [posX, setPosX] = useState(50); const [posY, setPosY] = useState(50);
       const [maskTop, setMaskTop] = useState(11.5); const [maskHeight, setMaskHeight] = useState(44); 
       const [maskLeft, setMaskLeft] = useState(8.2); const [maskWidth, setMaskWidth] = useState(83.6);
       const [isGenerating, setIsGenerating] = useState(false);
@@ -495,14 +519,11 @@
           canvas.width = bImg.width; canvas.height = bImg.height; ctx.drawImage(bImg, 0, 0, canvas.width, canvas.height);
           const uImg = new Image(); uImg.src = customImg;
           uImg.onload = () => {
-             const artX = canvas.width * (maskLeft / 100); const artW = canvas.width * (maskWidth / 100);
-             const artY = canvas.height * (maskTop / 100); const artH = canvas.height * (maskHeight / 100);
+             const artX = canvas.width * (maskLeft / 100); const artW = canvas.width * (maskWidth / 100); const artY = canvas.height * (maskTop / 100); const artH = canvas.height * (maskHeight / 100);
              ctx.save(); ctx.beginPath(); ctx.rect(artX, artY, artW, artH); ctx.clip(); 
-             const boxAspect = artW / artH; const imgAspect = uImg.width / uImg.height;
-             let baseW, baseH;
+             const boxAspect = artW / artH; const imgAspect = uImg.width / uImg.height; let baseW, baseH;
              if (imgAspect > boxAspect) { baseH = artH; baseW = uImg.width * (artH / uImg.height); } else { baseW = artW; baseH = uImg.height * (artW / uImg.width); }
-             const finalW = baseW * zoom; const finalH = baseH * zoom;
-             const offsetX = finalW * ((posX - 50) / 100); const offsetY = finalH * ((posY - 50) / 100);
+             const finalW = baseW * zoom; const finalH = baseH * zoom; const offsetX = finalW * ((posX - 50) / 100); const offsetY = finalH * ((posY - 50) / 100);
              const imgX = artX + (artW / 2) - (finalW / 2) + offsetX; const imgY = artY + (artH / 2) - (finalH / 2) + offsetY;
              ctx.drawImage(uImg, imgX, imgY, finalW, finalH); ctx.restore();
 
@@ -525,11 +546,9 @@
         <div className="w-full max-w-md bg-gray-800 p-4 rounded-xl border border-gray-600 shadow-2xl space-y-4 mx-auto animate-fade">
           <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
              <h2 className="text-xl font-bold text-purple-400">Proxy Creator</h2>
-             {!isStandalone && <button onClick={onClose} className="bg-gray-600 px-3 py-1 rounded text-white font-bold">✖ Chiudi</button>}
+             {!isStandalone && <button onClick={onClose} className="bg-gray-600 px-3 py-1 rounded text-white font-bold">✖</button>}
           </div>
-          {isStandalone && (
-            <div className="flex gap-2 mb-4"><input type="text" placeholder="Originale (es. Sol Ring)" value={baseQuery} onChange={e => setBaseQuery(e.target.value)} className="flex-1 bg-gray-900 border border-gray-600 p-2 rounded text-white outline-none" /><button onClick={searchBase} className="bg-purple-600 hover:bg-purple-500 px-3 rounded text-white font-bold transition-colors">Cerca</button></div>
-          )}
+          {isStandalone && ( <div className="flex gap-2 mb-4"><input type="text" placeholder="Originale (es. Sol Ring)" value={baseQuery} onChange={e => setBaseQuery(e.target.value)} className="flex-1 bg-gray-900 border border-gray-600 p-2 rounded text-white outline-none" /><button onClick={searchBase} className="bg-purple-600 px-3 rounded text-white font-bold">Cerca</button></div> )}
           {baseCard && (
            <div className="animate-fade space-y-3">
              <input type="text" placeholder="Nuovo Titolo (Opzionale)" value={customName} onChange={e => setCustomName(e.target.value)} className="w-full bg-gray-900 border border-gray-600 p-2 rounded text-white font-bold outline-none" />
@@ -537,14 +556,14 @@
              {customImg && (
                  <div className="bg-gray-900 p-3 rounded-lg border border-gray-700 space-y-3">
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-blue-400 uppercase">Cornice</p>
+                      <p className="text-[10px] font-bold text-blue-400 uppercase">Cornice Riquadro</p>
                       <div className="flex items-center gap-2"><span className="text-[10px] w-10 text-white font-bold">Su</span><input type="range" min="0" max="30" step="0.5" value={maskTop} onChange={e=>setMaskTop(e.target.value)} className="w-full accent-blue-500" /></div>
                       <div className="flex items-center gap-2"><span className="text-[10px] w-10 text-white font-bold">Alt.</span><input type="range" min="20" max="100" step="0.5" value={maskHeight} onChange={e=>setMaskHeight(e.target.value)} className="w-full accent-blue-500" /></div>
                       <div className="flex items-center gap-2"><span className="text-[10px] w-10 text-white font-bold">Sx</span><input type="range" min="0" max="20" step="0.2" value={maskLeft} onChange={e=>setMaskLeft(e.target.value)} className="w-full accent-blue-500" /></div>
                       <div className="flex items-center gap-2"><span className="text-[10px] w-10 text-white font-bold">Largh.</span><input type="range" min="50" max="100" step="0.5" value={maskWidth} onChange={e=>setMaskWidth(e.target.value)} className="w-full accent-blue-500" /></div>
                     </div>
                     <div className="space-y-1 pt-2 border-t border-gray-700">
-                      <p className="text-[10px] font-bold text-purple-400 uppercase">Foto</p>
+                      <p className="text-[10px] font-bold text-purple-400 uppercase">Foto Interna</p>
                       <div className="flex items-center gap-2"><span className="text-[10px] w-10 text-white font-bold">Zoom</span><input type="range" min="1" max="3" step="0.1" value={zoom} onChange={e=>setZoom(e.target.value)} className="w-full accent-purple-500" /></div>
                       <div className="flex items-center gap-2"><span className="text-[10px] w-10 text-white font-bold">Orizz</span><input type="range" min="0" max="100" value={posX} onChange={e=>setPosX(e.target.value)} className="w-full accent-purple-500" /></div>
                       <div className="flex items-center gap-2"><span className="text-[10px] w-10 text-white font-bold">Vert</span><input type="range" min="0" max="100" value={posY} onChange={e=>setPosY(e.target.value)} className="w-full accent-purple-500" /></div>
@@ -556,7 +575,7 @@
                  {customImg && ( <div className="absolute bg-black z-10 overflow-hidden shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] border border-black/50" style={{ top: `${maskTop}%`, left: `${maskLeft}%`, width: `${maskWidth}%`, height: `${maskHeight}%` }}><img src={customImg} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transform: `translate(${posX - 50}%, ${posY - 50}%) scale(${zoom})` }} /></div> )}
                  {customName && ( <div className="absolute z-20 flex items-center px-3" style={{ top: '4.8%', left: '7.5%', width: '65%', height: '4.5%' }}><span className="text-white tracking-wider truncate" style={{ fontFamily: "Georgia, serif", fontSize: '16px', fontWeight: '900', textShadow: '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' }}>{customName}</span></div> )}
              </div>
-             <button onClick={eseguiSalvataggio} disabled={isGenerating} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-lg shadow-[0_0_15px_rgba(22,163,74,0.5)] mt-4 flex justify-center transition-all">
+             <button onClick={eseguiSalvataggio} disabled={isGenerating} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-lg shadow-[0_0_15px_rgba(22,163,74,0.5)] mt-4 transition-all">
                  {isGenerating ? 'Attendere...' : (isStandalone ? '💾 Crea & Salva Database' : '💾 Applica Proxy al Mazzo')}
              </button>
            </div>
@@ -564,6 +583,7 @@
         </div>
       );
       if (isStandalone) return <div className="max-w-md mx-auto pt-4 pb-10 relative z-20">{editorUI}</div>;
+      
       return (
         <div className="fixed inset-0 bg-gray-900 z-[9999] h-[100dvh] w-full flex flex-col animate-fade overflow-y-auto">
            <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 sticky top-0 z-50 shadow-md">
@@ -574,6 +594,7 @@
       );
     };
 
+    // --- DECKBUILDER ---
     const DeckBuilder = ({navigate, activeDeck}) => {
       const [deckName, setDeckName] = useState(activeDeck ? activeDeck.name : "");
       const [deckFormat, setDeckFormat] = useState(activeDeck ? (activeDeck.format || 'commander') : 'commander');
@@ -588,59 +609,36 @@
       const [isMulticolorOnly, setIsMulticolorOnly] = useState(false);
       const [isCommanderOnly, setIsCommanderOnly] = useState(false);
 
-      const [superType, setSuperType] = useState("");
-      const [cardType, setCardType] = useState("");
-      const [cardType2, setCardType2] = useState("");
-      const [subType, setSubType] = useState("");
-      const [rarity, setRarity] = useState("");
-      const [cmcOp, setCmcOp] = useState("=");
-      const [cmcVal, setCmcVal] = useState("");
+      const [superType, setSuperType] = useState(""); const [cardType, setCardType] = useState("");
+      const [cardType2, setCardType2] = useState(""); const [subType, setSubType] = useState("");
+      const [rarity, setRarity] = useState(""); const [cmcOp, setCmcOp] = useState("="); const [cmcVal, setCmcVal] = useState("");
       
       const [allResults, setAllResults] = useState([]);
       const [localPage, setLocalPage] = useState(0);
       const [nextScryfallUrl, setNextScryfallUrl] = useState(null);
       const [loading, setLoading] = useState(false);
       
-      const [selectedCard, setSelectedCard] = useState(null);
-      const [addQty, setAddQty] = useState(1); 
-      
-      const [managingCard, setManagingCard] = useState(null);
-      const [manageQty, setManageQty] = useState(0);
-
+      const [selectedCard, setSelectedCard] = useState(null); const [addQty, setAddQty] = useState(1); 
+      const [managingCard, setManagingCard] = useState(null); const [manageQty, setManageQty] = useState(0);
       const [editingProxyCard, setEditingProxyCard] = useState(null);
-      const [importText, setImportText] = useState("");
-      const [showImport, setShowImport] = useState(false);
+      const [importText, setImportText] = useState(""); const [showImport, setShowImport] = useState(false);
       
       const [savedScroll, setSavedScroll] = useState(0);
-
-      const [itaImg, setItaImg] = useState(null);
-      const [itaImgBack, setItaImgBack] = useState(null);
-      const [showIta, setShowIta] = useState(false);
-      const [showBack, setShowBack] = useState(false);
+      const [itaImg, setItaImg] = useState(null); const [itaImgBack, setItaImgBack] = useState(null);
+      const [showIta, setShowIta] = useState(false); const [showBack, setShowBack] = useState(false);
       const [translating, setTranslating] = useState(false);
-      
-      const [printsList, setPrintsList] = useState([]);
-      const [loadingPrints, setLoadingPrints] = useState(false);
+      const [printsList, setPrintsList] = useState([]); const [loadingPrints, setLoadingPrints] = useState(false);
 
       const openSubView = (setter, data, qtySetter = null, qtyVal = 1) => {
-         setSavedScroll(window.scrollY);
-         setter(data);
-         if(qtySetter) qtySetter(qtyVal);
-         setItaImg(null); setItaImgBack(null); setShowIta(false); setShowBack(false); setPrintsList([]);
-         window.scrollTo(0, 0);
+         setSavedScroll(window.scrollY); setter(data); if(qtySetter) qtySetter(qtyVal);
+         setItaImg(null); setItaImgBack(null); setShowIta(false); setShowBack(false); setPrintsList([]); window.scrollTo(0, 0);
       };
-
-      const closeSubView = (setter) => {
-         setter(null);
-         setTimeout(() => window.scrollTo(0, savedScroll), 10);
-      };
+      const closeSubView = (setter) => { setter(null); setTimeout(() => window.scrollTo(0, savedScroll), 10); };
 
       const fetchOtherPrints = (card) => {
           if(!card.printsUrl) return alert("Questa carta non ha altre stampe disponibili sul database.");
           setLoadingPrints(true);
-          fetch(card.printsUrl)
-            .then(res => res.json())
-            .then(data => {
+          fetch(card.printsUrl).then(res => res.json()).then(data => {
                 if(data.data && data.data.length > 0) {
                     const mapped = data.data.filter(c => c.image_uris || (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris)).map(c => {
                          let iImg = ""; let iImgBack = null;
@@ -661,31 +659,26 @@
          if (!managingCard) return;
          const cardKey = buildCardKey(managingCard);
          setDeck(deck.map(c => {
-             if (buildCardKey(c) === cardKey) { return { ...c, image: newImg, imageBack: newImgBack }; }
+             if (buildCardKey(c) === cardKey) return { ...c, image: newImg, imageBack: newImgBack };
              return c;
          }));
          setManagingCard({...managingCard, image: newImg, imageBack: newImgBack});
-         setPrintsList([]); setShowIta(false);
-         alert("Immagine aggiornata con successo per tutte le copie!");
+         setPrintsList([]); setShowIta(false); alert("Immagine aggiornata con successo per tutte le copie!");
       };
 
       const translateCard = (card) => {
         if (card.isCustom) return alert("Le carte Proxy non possono essere tradotte dal database.");
         if (itaImg) { setShowIta(!showIta); return; } 
         setTranslating(true);
-        fetch(`https://api.scryfall.com/cards/search?q=!"${card.name}"+lang:it`)
-          .then(res => res.json())
-          .then(data => {
+        fetch(`https://api.scryfall.com/cards/search?q=!"${card.name}"+lang:it`).then(res => res.json()).then(data => {
              if (data.data && data.data.length > 0) {
-                 const itCard = data.data[0];
-                 let iImg = null; let iImgBack = null;
+                 const itCard = data.data[0]; let iImg = null; let iImgBack = null;
                  if (itCard.image_uris && itCard.image_uris.normal) { iImg = itCard.image_uris.normal; } 
                  else if (itCard.card_faces && itCard.card_faces.length > 0) {
                      if (itCard.card_faces[0].image_uris) iImg = itCard.card_faces[0].image_uris.normal;
                      if (itCard.card_faces.length > 1 && itCard.card_faces[1].image_uris) iImgBack = itCard.card_faces[1].image_uris.normal;
                  }
-                 if (iImg) { setItaImg(iImg); setItaImgBack(iImgBack); setShowIta(true); }
-                 else alert("Immagine italiana non trovata.");
+                 if (iImg) { setItaImg(iImg); setItaImgBack(iImgBack); setShowIta(true); } else alert("Immagine italiana non trovata.");
              } else { alert("Traduzione ufficiale italiana non stampata per questa carta."); }
              setTranslating(false);
           }).catch(e => { alert("Errore di connessione."); setTranslating(false); });
@@ -695,16 +688,11 @@
 
       const eseguiRicerca = (url, isNewSearch = false) => {
         setLoading(true);
-        fetch(url)
-          .then(res => res.json())
-          .then(data => {
+        fetch(url).then(res => res.json()).then(data => {
             try {
                 if (data.data && Array.isArray(data.data)) {
                    const cards = data.data.filter(c => c.image_uris || (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris)).map(c => {
-                     let img = ""; let imgBack = null;
-                     let oracle_text = c.oracle_text || "";
-                     let mana_cost = c.mana_cost || "";
-
+                     let img = ""; let imgBack = null; let oracle_text = c.oracle_text || ""; let mana_cost = c.mana_cost || "";
                      if (c.image_uris && c.image_uris.normal) { img = c.image_uris.normal; } 
                      else if (c.card_faces && c.card_faces.length > 0) {
                          if (c.card_faces[0].image_uris && c.card_faces[0].image_uris.normal) img = c.card_faces[0].image_uris.normal;
@@ -712,21 +700,7 @@
                          if (!oracle_text) oracle_text = c.card_faces.map(f=>f.oracle_text).join(' ');
                          if (!mana_cost) mana_cost = c.card_faces[0].mana_cost;
                      }
-                     return { 
-                         id: c.id || Math.random().toString(), 
-                         name: c.name || "Sconosciuta", 
-                         image: img, 
-                         imageBack: imgBack, 
-                         type: c.type_line || "", 
-                         cmc: c.cmc || 0, 
-                         colors: c.color_identity || [], 
-                         legalities: c.legalities || {}, 
-                         printsUrl: c.prints_search_uri || null, 
-                         isCommander: false,
-                         isCompanion: false,
-                         oracle_text: oracle_text,
-                         mana_cost: mana_cost
-                     };
+                     return { id: c.id || Math.random().toString(), name: c.name || "Sconosciuta", image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, isCommander: false, isCompanion: false, oracle_text: oracle_text, mana_cost: mana_cost };
                    });
                    if(isNewSearch) { setAllResults(cards); setLocalPage(0); } else { setAllResults(prev => [...prev, ...cards]); }
                    setNextScryfallUrl(data.has_more ? data.next_page : null);
@@ -738,23 +712,14 @@
 
       const searchCard = () => {
         let searchQuery = query ? `${query} ` : "";
-        if (oracleText) searchQuery += `o:"${oracleText}" `;
-        if (rarity) searchQuery += `r:${rarity} `;
-        
+        if (oracleText) searchQuery += `o:"${oracleText}" `; if (rarity) searchQuery += `r:${rarity} `;
         if (mana.length > 0) {
            let mStr = mana.join('');
-           if (colorMatchType === 'exact') searchQuery += cardType === 'land' ? `id=${mStr} ` : `c=${mStr} `;
-           else searchQuery += cardType === 'land' ? `id>=${mStr} ` : `c>=${mStr} `;
+           if (colorMatchType === 'exact') searchQuery += cardType === 'land' ? `id=${mStr} ` : `c=${mStr} `; else searchQuery += cardType === 'land' ? `id>=${mStr} ` : `c>=${mStr} `;
         }
-        if (isMulticolorOnly) searchQuery += `c>1 `;
-        if (isCommanderOnly) searchQuery += `is:commander `;
-
-        if (superType) searchQuery += `t:${superType} `;
-        if (cardType) searchQuery += `t:${cardType} `;
-        if (cardType2) searchQuery += `t:${cardType2} `;
-        if (subType) searchQuery += `t:${subType} `;
-        if (cmcVal !== "") searchQuery += `cmc${cmcOp}${cmcVal} `;
-        
+        if (isMulticolorOnly) searchQuery += `c>1 `; if (isCommanderOnly) searchQuery += `is:commander `;
+        if (superType) searchQuery += `t:${superType} `; if (cardType) searchQuery += `t:${cardType} `; if (cardType2) searchQuery += `t:${cardType2} `;
+        if (subType) searchQuery += `t:${subType} `; if (cmcVal !== "") searchQuery += `cmc${cmcOp}${cmcVal} `;
         if(!searchQuery.trim()) return alert("Inserisci almeno un parametro di ricerca!");
         eseguiRicerca(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchQuery.trim())}`, true);
       };
@@ -768,15 +733,12 @@
 
       const maxLocalPages = allResults.length > 0 ? Math.ceil(allResults.length / 15) : 0;
       const currentResults = allResults.length > 0 ? allResults.slice(localPage * 15, (localPage + 1) * 15) : [];
-
       const goToNextPage = () => { if (localPage + 1 < maxLocalPages) { setLocalPage(localPage + 1); } else if (nextScryfallUrl) { eseguiRicerca(nextScryfallUrl, false); setLocalPage(localPage + 1); } };
       const goToPrevPage = () => { if (localPage > 0) setLocalPage(localPage - 1); };
 
       const addToDeckMulti = () => {
         let newCards = [];
-        for(let i=0; i<addQty; i++) {
-           newCards.push({...selectedCard, deckId: 'card-' + Date.now() + '-' + i + '-' + Math.random(), isCommander: false, isSideboard: addToSideboard, isCompanion: false});
-        }
+        for(let i=0; i<addQty; i++) { newCards.push({...selectedCard, deckId: 'card-' + Date.now() + '-' + i + '-' + Math.random(), isCommander: false, isSideboard: addToSideboard, isCompanion: false}); }
         setDeck([...deck, ...newCards]); closeSubView(setSelectedCard);
       };
 
@@ -784,22 +746,17 @@
         if(!deckName) return alert("Dai un nome al mazzo!");
         let savedDecks = JSON.parse(localStorage.getItem('mtg_decks') || '[]');
         const newDeckObj = { id: activeDeck ? activeDeck.id : Date.now(), name: deckName, format: deckFormat, cards: deck, rulebreaker: rulebreaker, date: new Date().toLocaleDateString() };
-        if(activeDeck) savedDecks = savedDecks.map(d => d.id === activeDeck.id ? newDeckObj : d);
-        else savedDecks.push(newDeckObj);
+        if(activeDeck) savedDecks = savedDecks.map(d => d.id === activeDeck.id ? newDeckObj : d); else savedDecks.push(newDeckObj);
         localStorage.setItem('mtg_decks', JSON.stringify(savedDecks));
         alert("Mazzo Salvato con successo!"); navigate('mydecks');
       };
 
       const handleImport = () => {
-        if(!importText.trim()) return;
-        setLoading(true); const lines = importText.split('\n'); let promises = [];
+        if(!importText.trim()) return; setLoading(true); const lines = importText.split('\n'); let promises = [];
         for (let i = 0; i < lines.length; i++) {
           let line = lines[i].trim(); if(!line) continue;
           const match = line.match(/^(\d+)?\s*(.*)$/); let qty = match[1] ? parseInt(match[1]) : 1; let name = match[2];
-          
-          let p = fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`)
-            .then(res => { if(res.ok) return res.json(); throw new Error('Not found'); })
-            .then(c => {
+          let p = fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`).then(res => { if(res.ok) return res.json(); throw new Error('Not found'); }).then(c => {
                let arr = [];
                for(let j=0; j<qty; j++) {
                  let img = ""; let imgBack = null; let oracle_text = c.oracle_text || ""; let mana_cost = c.mana_cost || "";
@@ -811,22 +768,17 @@
                      if (!mana_cost) mana_cost = c.card_faces[0].mana_cost;
                  }
                  arr.push({ id: c.id || Math.random().toString(), deckId: 'import-' + Date.now() + '-' + Math.random() + '-' + j, name: c.name || "Sconosciuta", image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, isCommander: false, isSideboard: addToSideboard, isCompanion: false, oracle_text: oracle_text, mana_cost: mana_cost });
-               }
-               return arr;
+               } return arr;
             }).catch(e => { return []; });
           promises.push(p);
         }
-        
         Promise.all(promises).then(resultsArray => {
            let newCards = []; resultsArray.forEach(arr => { newCards = newCards.concat(arr); });
            setDeck(prev => prev.concat(newCards)); setShowImport(false); setImportText(""); setLoading(false);
         });
       };
 
-      const saveInlineProxy = (updatedCard) => {
-         setDeck(deck.map(c => c.deckId === updatedCard.deckId ? updatedCard : c));
-         closeSubView(setEditingProxyCard);
-      };
+      const saveInlineProxy = (updatedCard) => { setDeck(deck.map(c => c.deckId === updatedCard.deckId ? updatedCard : c)); closeSubView(setEditingProxyCard); };
 
       const deckMap = {};
       deck.forEach(c => {
@@ -839,11 +791,8 @@
       Object.keys(groupedByCategory).forEach(k => { groupedByCategory[k].sort((a,b) => a.name.localeCompare(b.name)); });
 
       const applyManageQty = () => {
-         const cardKey = buildCardKey(managingCard);
-         let newDeck = deck.filter(c => buildCardKey(c) !== cardKey);
-         for(let i=0; i<manageQty; i++) {
-            newDeck.push({...managingCard, deckId: 'card-' + Date.now() + '-' + i + '-' + Math.random(), isCommander: managingCard.isCommander || managingCard.isCmdrFlag || false, isCompanion: managingCard.isCompanion || managingCard.isCompFlag || false});
-         }
+         const cardKey = buildCardKey(managingCard); let newDeck = deck.filter(c => buildCardKey(c) !== cardKey);
+         for(let i=0; i<manageQty; i++) { newDeck.push({...managingCard, deckId: 'card-' + Date.now() + '-' + i + '-' + Math.random(), isCommander: managingCard.isCommander || managingCard.isCmdrFlag || false, isCompanion: managingCard.isCompanion || managingCard.isCompFlag || false}); }
          setDeck(newDeck); closeSubView(setManagingCard);
       };
 
@@ -870,18 +819,14 @@
                  const bothHavePartner = commanders.every(c => c.oracle_text && partnerRegex.test(c.oracle_text));
                  if (!bothHavePartner) warnings.push("Commander: Hai 2 Comandanti, ma non hanno abilità legali per esserlo assieme (Partner, Background, ecc.).");
              }
-             if (commanders.length > 0 && commanders.some(c => c.type && !c.type.toLowerCase().includes("legendary") && !c.type.toLowerCase().includes("planeswalker"))) {
-                warnings.push("Il Comandante dev'essere una Creatura Leggendaria o Planeswalker valido.");
-             }
+             if (commanders.length > 0 && commanders.some(c => c.type && !c.type.toLowerCase().includes("legendary") && !c.type.toLowerCase().includes("planeswalker"))) warnings.push("Il Comandante dev'essere una Creatura Leggendaria o Planeswalker valido.");
          } else {
              if (mainDeckCards.length < 60) warnings.push(`${deckFormat.toUpperCase()}: minimo 60 carte (ora ${mainDeckCards.length}).`);
              if (sideCards.length > 15) warnings.push(`La Sideboard può avere massimo 15 carte (incluso Companion). (Ora ${sideCards.length}).`);
          }
 
          const validCompanions = ["gyruda", "jegantha", "kaheera", "keruga", "lurrus", "lutri", "obosh", "umori", "yorion", "zirda"];
-         companions.forEach(comp => {
-             if (!validCompanions.some(vc => comp.name.toLowerCase().includes(vc))) warnings.push(`La carta "${comp.name}" non è un Companion valido (solo i 10 di Ikoria possono esserlo).`);
-         });
+         companions.forEach(comp => { if (!validCompanions.some(vc => comp.name.toLowerCase().includes(vc))) warnings.push(`La carta "${comp.name}" non è un Companion valido (solo i 10 di Ikoria possono esserlo).`); });
 
          if (companions.length > 1) warnings.push("Puoi avere al massimo 1 Companion in totale.");
          if (companions.length === 1) {
@@ -891,7 +836,6 @@
                  if (comp.colors) { comp.colors.forEach(col => { if (!cmdColors.has(col)) compInvalidColor = true; }); }
                  if (compInvalidColor) warnings.push(`Il Companion "${comp.name}" non rispetta l'identità di colore del Comandante.`);
              }
-
              if (compName.includes("kaheera")) { if (deckToCheck.some(c => c.type && c.type.toLowerCase().includes("creature") && !/cat|elemental|nightmare|dinosaur|beast/i.test(c.type.toLowerCase()))) warnings.push("Kaheera: Tutte le creature del mazzo devono essere Gatti, Elementali, Incubi, Dinosauri o Bestie."); }
              if (compName.includes("gyruda")) { if (deckToCheck.some(c => (c.cmc || 0) % 2 !== 0)) warnings.push("Gyruda: Tutte le carte del mazzo devono avere Costo Pari."); }
              if (compName.includes("obosh")) { if (deckToCheck.some(c => (c.cmc || 0) > 0 && (c.cmc || 0) % 2 === 0 && !c.type.toLowerCase().includes("land"))) warnings.push("Obosh: Tutte le carte non-terra del mazzo devono avere Costo Dispari."); }
@@ -903,18 +847,17 @@
                  })) warnings.push("Jegantha: Nessuna carta può avere simboli di mana doppi nel costo.");
              }
              if (compName.includes("yorion")) {
-                 if (deckFormat === 'commander') warnings.push("Yorion non è un Companion legale in Commander (richiede 120 carte totali).");
+                 if (deckFormat === 'commander') warnings.push("Yorion non è un Companion legale in Commander.");
                  else if (mainDeckCards.length < 80) warnings.push("Yorion: Il mazzo principale deve avere almeno 80 carte.");
              }
              if (compName.includes("umori")) {
                  const nonLands = deckToCheck.filter(c => !c.type.toLowerCase().includes("land")); const types = new Set();
                  nonLands.forEach(c => { const tl = c.type.toLowerCase(); if(tl.includes("creature")) types.add("creature"); else if(tl.includes("artifact")) types.add("artifact"); else if(tl.includes("enchantment")) types.add("enchantment"); else if(tl.includes("planeswalker")) types.add("planeswalker"); else if(tl.includes("instant")) types.add("instant"); else if(tl.includes("sorcery")) types.add("sorcery"); else if(tl.includes("battle")) types.add("battle"); });
-                 if (types.size > 1) warnings.push("Umori: Tutte le carte non-terra devono condividere lo stesso tipo (es. tutte Creature o tutti Artefatti).");
+                 if (types.size > 1) warnings.push("Umori: Tutte le carte non-terra devono condividere lo stesso tipo di carta.");
              }
              if (compName.includes("zirda")) {
                  if (deckToCheck.some(c => {
-                    const tl = c.type.toLowerCase();
-                    if(tl.includes("instant") || tl.includes("sorcery") || tl.includes("basic land") || tl.includes("planeswalker")) return false; 
+                    const tl = c.type.toLowerCase(); if(tl.includes("instant") || tl.includes("sorcery") || tl.includes("basic land") || tl.includes("planeswalker")) return false; 
                     if(tl.includes("land") && !c.oracle_text) return false; 
                     return !/:|Equip|Cycling|Scavenge|Unearth|Outlast|Ninjutsu|Transfigure|Fortify|Bloodrush|Megamorph|Monstrosity|Adapt|Awaken|Exert|Embalm|Eternalize|Crew|Level Up/i.test(c.oracle_text || "");
                  })) warnings.push("Zirda: Ogni permanente nel mazzo deve avere un'abilità attivata.");
@@ -964,9 +907,7 @@
                </div>
                <div className="flex-1 flex flex-col items-center justify-start p-2">
                  <img src={displayImg} alt={targetCard.name} className="w-auto max-h-[50vh] object-contain rounded-xl mb-4 shadow-2xl" />
-                 {currentBack && !targetCard.isCustom && (
-                    <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}</button>
-                 )}
+                 {currentBack && !targetCard.isCustom && ( <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}</button> )}
                  <div className="w-full max-w-sm mb-4 flex gap-2">
                     <button onClick={() => translateCard(targetCard)} disabled={translating} className="flex-1 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(67,56,202,0.4)] border border-indigo-500 transition-all text-xs">
                       {translating ? "Traduco..." : (showIta ? "🇬🇧 Torna in Inglese" : "🇮🇹 Tenta Traduzione")}
@@ -982,9 +923,7 @@
                           {printsList.map(p => (
                              <div key={p.id} className="flex flex-col items-center shrink-0">
                                <img src={p.image} className="w-20 rounded cursor-pointer border-2 border-transparent hover:border-blue-500 shadow-sm" onClick={() => { setterState({...targetCard, image: p.image, imageBack: p.imageBack}); setShowIta(false); }} />
-                               {actionLabel === "Gestisci" && (
-                                  <button onClick={() => changeArtOfExistingCard(p.image, p.imageBack)} className="mt-1 text-[8px] bg-blue-600 text-white px-1 rounded hover:bg-blue-500 font-bold">APPLICA</button>
-                               )}
+                               {actionLabel === "Gestisci" && ( <button onClick={() => changeArtOfExistingCard(p.image, p.imageBack)} className="mt-1 text-[8px] bg-blue-600 text-white px-1 rounded hover:bg-blue-500 font-bold">APPLICA</button> )}
                              </div>
                           ))}
                        </div>
@@ -1158,18 +1097,12 @@
                              </h4>
                              {cardsInCat.map((card, index) => (
                                <div key={index} className={`flex gap-2 bg-gray-900 p-2 rounded-lg border ${card.isCmdrFlag ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : (card.isCompFlag ? 'border-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.3)]' : (card.isSideboard ? 'border-indigo-500' : 'border-gray-700'))}`}>
-                                 
                                  <div className="relative cursor-pointer shrink-0" onClick={() => openSubView(setManagingCard, card, setManageQty, card.count)}>
                                      <img src={card.proxyImage || card.image || "mtg-bg.jpg"} alt={card.name} className="w-14 rounded object-cover shadow border border-gray-600" />
-                                     <div className="absolute -top-2 -right-2 bg-blue-600 text-white font-black text-xs w-6 h-6 flex items-center justify-center rounded-full shadow border border-blue-400">
-                                        {card.count}
-                                     </div>
+                                     <div className="absolute -top-2 -right-2 bg-blue-600 text-white font-black text-xs w-6 h-6 flex items-center justify-center rounded-full shadow border border-blue-400">{card.count}</div>
                                  </div>
-                                 
                                  <div className="flex-1 text-sm flex flex-col justify-between pt-1 overflow-hidden">
-                                   <h4 className="font-bold text-gray-200 text-xs leading-tight truncate pr-1 cursor-pointer" onClick={() => openSubView(setManagingCard, card, setManageQty, card.count)}>
-                                       {card.name}
-                                   </h4>
+                                   <h4 className="font-bold text-gray-200 text-xs leading-tight truncate pr-1 cursor-pointer" onClick={() => openSubView(setManagingCard, card, setManageQty, card.count)}>{card.name}</h4>
                                    <div className="flex items-center justify-between mt-1">
                                      <div className="flex items-center gap-2">
                                        {deckFormat === 'commander' && !card.isSideboard && !card.isCompFlag && (
@@ -1202,6 +1135,7 @@
       );
     };
 
+    // --- VISUALIZZATORE MAZZI (SOLO LETTURA E TRADUZIONE) ---
     const DeckViewer = ({deck, navigate}) => {
       const [viewingCard, setViewingCard] = useState(null);
       const [itaImg, setItaImg] = useState(null);
@@ -1230,12 +1164,18 @@
           setItaImg(null); setItaImgBack(null); setShowIta(false); setShowBack(false); setPrintsList([]);
           setViewingCard(c); window.scrollTo(0,0); 
       };
-      const closeViewer = () => { setViewingCard(null); setTimeout(() => window.scrollTo(0, savedScroll), 10); };
+      
+      const closeViewer = () => { 
+          setViewingCard(null); 
+          setTimeout(() => window.scrollTo(0, savedScroll), 10);
+      };
 
       const fetchOtherPrints = (card) => {
           if(!card.printsUrl) return alert("Questa carta non ha altre stampe disponibili sul database.");
           setLoadingPrints(true);
-          fetch(card.printsUrl).then(res => res.json()).then(data => {
+          fetch(card.printsUrl)
+            .then(res => res.json())
+            .then(data => {
                 if(data.data && data.data.length > 0) {
                     const mapped = data.data.filter(c => c.image_uris || (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris)).map(c => {
                          let iImg = ""; let iImgBack = null;
@@ -1256,7 +1196,9 @@
         if (card.isCustom) return alert("Le carte Proxy non possono essere tradotte dal database.");
         if (itaImg) { setShowIta(!showIta); return; } 
         setTranslating(true);
-        fetch(`https://api.scryfall.com/cards/search?q=!"${card.name}"+lang:it`).then(res => res.json()).then(data => {
+        fetch(`https://api.scryfall.com/cards/search?q=!"${card.name}"+lang:it`)
+          .then(res => res.json())
+          .then(data => {
              if (data.data && data.data.length > 0) {
                  const itCard = data.data[0];
                  let iImg = null; let iImgBack = null;
@@ -1287,19 +1229,27 @@
                  <h2 className="ml-4 font-bold text-white truncate max-w-[50%]">{viewingCard.name}</h2>
                  <div className="w-8"></div>
                </div>
+               
                <div className="flex-1 flex flex-col items-center justify-start p-2">
                  <img src={displayImg} alt={viewingCard.name} className="w-auto max-h-[60vh] object-contain rounded-xl mb-4 shadow-2xl" />
-                 {currentBack && !viewingCard.isCustom && (
-                    <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}</button>
+                 
+                 {(itaImgBack || viewingCard.imageBack) && !viewingCard.isCustom && (
+                    <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">
+                       🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}
+                    </button>
                  )}
+
                  <div className="w-full max-w-sm mb-4 flex gap-2">
                     <button onClick={() => translateCard(viewingCard)} disabled={translating} className="flex-1 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(67,56,202,0.4)] border border-indigo-500 transition-all text-xs">
                       {translating ? "Traduco..." : (showIta ? "🇬🇧 Torna in Inglese" : "🇮🇹 Tenta Traduzione")}
                     </button>
                     {!viewingCard.isCustom && viewingCard.printsUrl && (
-                        <button onClick={() => fetchOtherPrints(viewingCard)} disabled={loadingPrints} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl shadow-lg border border-orange-500 transition-all text-xs">🖼️ Altre Stampe</button>
+                        <button onClick={() => fetchOtherPrints(viewingCard)} disabled={loadingPrints} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 rounded-xl shadow-lg border border-orange-500 transition-all text-xs">
+                          {loadingPrints ? "Cerco..." : "🖼️ Altre Stampe"}
+                        </button>
                     )}
                  </div>
+
                  {printsList.length > 0 && (
                     <div className="w-full max-w-sm mb-4 bg-gray-800 p-2 rounded-xl border border-gray-600 shadow-md animate-fade">
                        <p className="text-xs text-gray-300 font-bold mb-2">Questa è la modalità lettura. La stampa non verrà salvata nel mazzo.</p>
@@ -1353,10 +1303,12 @@
       );
     };
 
+    // --- I MIEI MAZZI ---
     const MyDecks = ({navigate}) => {
       const [decks, setDecks] = useState([]);
       const [filterQuery, setFilterQuery] = useState("");
       const [manaFilter, setManaFilter] = useState([]);
+      const [formatFilter, setFormatFilter] = useState("");
       
       useEffect(() => { setDecks(JSON.parse(localStorage.getItem('mtg_decks') || '[]')); }, []);
 
@@ -1381,13 +1333,19 @@
          const cmdNames = cmds.map(c=>c.name.toLowerCase()).join(" ");
          const matchCmd = cmdNames.includes(filterQuery.toLowerCase());
          const textMatch = matchName || matchCmd;
+
          let colorMatch = true;
          if (manaFilter.length > 0) {
              const deckColors = new Set();
-             cmds.forEach(c => { if(c.colors) c.colors.forEach(col => deckColors.add(col)); });
+             const cardsToCheck = cmds.length > 0 ? cmds : d.cards; // Se non c'è comandante, cerca nei colori del mazzo intero
+             cardsToCheck.forEach(c => { if(c.colors) c.colors.forEach(col => deckColors.add(col)); });
              colorMatch = manaFilter.every(m => deckColors.has(m));
          }
-         return textMatch && colorMatch;
+         
+         let matchFormat = true;
+         if (formatFilter) { matchFormat = (d.format || 'commander') === formatFilter; }
+
+         return textMatch && colorMatch && matchFormat;
       });
 
       if (decks.length === 0) return <div className="text-center text-gray-400 mt-10 font-bold bg-gray-900/80 p-6 rounded-xl border border-gray-700 backdrop-blur-sm mx-4">Nessun mazzo salvato. Vai nel Deckbuilder!</div>;
@@ -1395,19 +1353,28 @@
       return (
         <div className="max-w-2xl mx-auto space-y-4">
           <div className="bg-gray-800/90 p-4 rounded-xl border border-gray-600 shadow-md backdrop-blur-sm">
-             <input type="text" placeholder="🔍 Cerca mazzo o comandante..." value={filterQuery} onChange={e => setFilterQuery(e.target.value)} className="w-full bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none mb-3" />
+             <div className="flex gap-2 mb-3">
+                 <input type="text" placeholder="🔍 Cerca mazzo o comandante..." value={filterQuery} onChange={e => setFilterQuery(e.target.value)} className="flex-1 bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none" />
+                 <select value={formatFilter} onChange={e => setFormatFilter(e.target.value)} className="bg-gray-900 text-white p-3 rounded font-bold border border-gray-600 outline-none w-32">
+                     <option value="">Tutti</option><option value="commander">Cmdr</option><option value="standard">Std</option>
+                     <option value="pioneer">Pion</option><option value="modern">Mod</option><option value="legacy">Leg</option>
+                     <option value="vintage">Vin</option><option value="pauper">Pau</option><option value="premodern">Pre</option>
+                 </select>
+             </div>
              <div className="flex gap-2 overflow-x-auto pb-1 justify-center">
                  {ManaColors.map(m => (
                    <button key={m.id} onClick={() => toggleMana(m.id)} className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center font-bold border-2 ${manaFilter.includes(m.id) ? 'border-white scale-110' : 'border-transparent opacity-50'} ${m.color}`}>{m.label}</button>
                  ))}
              </div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             {filteredDecks.map(d => {
               const cmds = d.cards.filter(c => c.isCommander);
               let mainImg = '';
               if (cmds.length > 0 && cmds[0]) mainImg = cmds[0].proxyImage || cmds[0].image;
               else if (d.cards[0]) mainImg = d.cards[0].proxyImage || d.cards[0].image;
+
               return (
                 <div key={d.id} className="bg-gray-800/90 backdrop-blur-sm rounded-xl border border-gray-600 overflow-hidden shadow-xl flex flex-col">
                    <div className="h-24 bg-gray-900 relative">
@@ -1436,12 +1403,14 @@
       );
     };
 
+    // --- DECK ANALYSIS E CONDIVISIONE ---
     const DeckAnalysis = ({deck, navigate}) => {
       const [showQR, setShowQR] = useState(false);
       if(!deck) return null;
 
       const cmds = deck.cards.filter(c => c.isCommander);
       const cmdName = cmds.length > 0 ? cmds[0].name : "Nessun Comandante Selezionato";
+      
       const totalCards = deck.cards.filter(c => !c.isSideboard && !c.isCompanion).length;
       const lands = deck.cards.filter(c => c.type && c.type.toLowerCase().includes('land') && !c.isSideboard && !c.isCompanion).length;
       const avgCMC = deck.cards.filter(c => !c.isSideboard && !c.isCompanion).reduce((acc, c) => acc + (c.cmc || 0), 0) / (totalCards || 1);
@@ -1513,7 +1482,7 @@
                   <p className="text-2xl font-black text-white">{lands}</p>
                </div>
                <div className="bg-gray-900 p-2 rounded-lg border border-gray-700 shadow-inner">
-                  <p className="text-xs text-gray-400 font-bold uppercase">CMC</p>
+                  <p className="text-xs text-gray-400 font-bold uppercase">CMC Medio</p>
                   <p className="text-2xl font-black text-blue-400">{avgCMC.toFixed(2)}</p>
                </div>
              </div>
@@ -1591,6 +1560,19 @@
       );
     };
 
+    // --- BIG STATS ROW (PER IL NUOVO LIFE TRACKER) ---
+    const BigStatRow = ({ label, value, onSub, onAdd }) => (
+      <div className="flex justify-between items-center bg-gray-900 rounded-xl px-3 py-2 mb-2 border border-gray-700 shadow-inner">
+        <span className="text-gray-300 font-bold text-sm w-1/2 truncate pr-2">{label}</span>
+        <div className="flex items-center space-x-3 justify-end w-1/2">
+          <button onClick={onSub} className="w-10 h-10 bg-red-800 rounded-lg font-black text-2xl text-red-200 active:bg-red-600 transition-colors flex items-center justify-center">-</button>
+          <span className="w-8 text-center font-black text-white text-xl">{value}</span>
+          <button onClick={onAdd} className="w-10 h-10 bg-green-800 rounded-lg font-black text-2xl text-green-200 active:bg-green-600 transition-colors flex items-center justify-center">+</button>
+        </div>
+      </div>
+    );
+
+    // --- GAME UTILITY (IL NUOVO LIFE TRACKER FULL SCREEN STILE LIFETAP) ---
     const GameUtility = ({view, setView}) => {
       const [setup, setSetup] = useState(true);
       const [numPlayers, setNumPlayers] = useState(4);
@@ -1650,9 +1632,9 @@
 
       const gridClass = players.length <= 2 ? 'grid-cols-2 grid-rows-1' : (players.length <= 4 ? 'grid-cols-2 grid-rows-2' : 'grid-cols-3 grid-rows-2');
       return (
-        <div className="fixed inset-0 z-[100] bg-black p-1 flex flex-col h-[100dvh] w-[100dvw]">
-          <button onClick={() => setView('game')} className="absolute top-2 left-2 z-[110] bg-black/80 px-3 py-2 rounded-full text-white text-xs border border-white/20 font-bold shadow-lg">✖ Esci</button>
-          <div className={`flex-1 grid ${gridClass} gap-1 h-full w-full pt-12`}>
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col h-[100dvh] w-[100dvw]">
+          <button onClick={() => setView('game')} className="absolute top-2 left-2 z-[110] bg-black/60 px-4 py-2 rounded-full text-white text-xs border border-white/20 font-bold shadow-lg backdrop-blur-md">✖ Esci Partita</button>
+          <div className={`flex-1 grid ${gridClass} gap-1 h-full w-full p-1`}>
              {players.map(p => <PlayerCard key={p.id} player={p} updateStat={updateStat} updateMana={updateMana} toggleImmunity={toggleImmunity} opponents={players.filter(op => op.id !== p.id)} updatePlayerConfig={updatePlayerConfig} />)}
           </div>
         </div>
@@ -1662,6 +1644,8 @@
     const PlayerCard = ({ player, updateStat, updateMana, toggleImmunity, opponents, updatePlayerConfig }) => {
       const [viewMode, setViewMode] = useState('life'); 
       const [cmdQuery, setCmdQuery] = useState("");
+      const [cmdResults, setCmdResults] = useState([]);
+      const [isSearching, setIsSearching] = useState(false);
       const [isEditingName, setIsEditingName] = useState(false);
       const [tempName, setTempName] = useState(player.name);
       
@@ -1671,108 +1655,128 @@
          Object.keys(player.cmdDmg).forEach(key => { if (player.cmdDmg[key] >= 21) isDead = true; });
       }
 
-      const searchCmdBg = () => {
+      const eseguiRicercaCmd = () => {
          if(!cmdQuery.trim()) return;
-         fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cmdQuery.trim())}`).then(res => res.json()).then(c => {
-               if(c.id) {
-                 let imgUrl = c.image_uris ? c.image_uris.art_crop : (c.card_faces && c.card_faces.length > 0 ? c.card_faces[0].image_uris.art_crop : null);
-                 if(imgUrl) updatePlayerConfig(player.id, 'bgUrl', imgUrl); setCmdQuery("");
-               } else alert("Comandante non trovato");
-            }).catch(e => console.error(e));
+         setIsSearching(true);
+         fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(cmdQuery.trim() + " (is:commander OR t:legendary)")}`)
+            .then(res => res.json())
+            .then(data => {
+               if(data.data) {
+                  const results = data.data.map(c => {
+                     let imgUrl = c.image_uris ? c.image_uris.art_crop : (c.card_faces && c.card_faces.length > 0 && c.card_faces[0].image_uris ? c.card_faces[0].image_uris.art_crop : null);
+                     return { id: c.id, name: c.name, img: imgUrl };
+                  }).filter(c => c.img);
+                  setCmdResults(results);
+               } else { alert("Nessun comandante trovato."); }
+               setIsSearching(false);
+            }).catch(e => { console.error(e); setIsSearching(false); });
       };
 
       const saveName = () => { setIsEditingName(false); if(tempName.trim() !== "") updatePlayerConfig(player.id, 'name', tempName.trim()); else setTempName(player.name); };
 
+      // L'intestazione con il nome del giocatore assolutamente centrato!
       const PlayerHeader = () => (
-         <div className="flex justify-between items-center bg-black/60 backdrop-blur-sm p-2 z-30 border-b border-gray-700 shadow-sm h-[15%] min-h-[30px]">
-            <div className="flex items-center gap-2 overflow-hidden flex-1">
-               {isEditingName ? ( <input autoFocus type="text" value={tempName} onChange={e => setTempName(e.target.value)} onBlur={saveName} onKeyDown={e => e.key === 'Enter' && saveName()} className="bg-gray-700 text-white text-xs px-1 py-0.5 rounded outline-none w-24 border border-gray-500" /> ) : (
-                  <span onClick={() => setIsEditingName(true)} className="font-bold text-white text-sm drop-shadow-md truncate cursor-pointer">{player.name} ✎</span>
+         <div className="relative flex justify-center items-center bg-black/50 p-2 z-30 border-b border-gray-700 h-[20%] min-h-[40px]">
+            {/* Contenitore Nome Centrale */}
+            <div className="flex flex-col items-center justify-center overflow-hidden z-20">
+               {isEditingName ? ( <input autoFocus type="text" value={tempName} onChange={e => setTempName(e.target.value)} onBlur={saveName} onKeyDown={e => e.key === 'Enter' && saveName()} className="bg-gray-700 text-white text-sm px-1 py-1 rounded outline-none w-32 border border-gray-500 font-bold text-center" /> ) : (
+                  <span onClick={() => setIsEditingName(true)} className="font-bold text-white text-base drop-shadow-md truncate cursor-pointer text-center px-4">{player.name} ✎</span>
                )}
-               {player.poison > 0 && <span className="text-green-400 text-[11px] font-black drop-shadow-md whitespace-nowrap">💧{player.poison}</span>}
-               {player.emblems > 0 && <span className="text-purple-400 text-[11px] font-black drop-shadow-md whitespace-nowrap">🛡️{player.emblems}</span>}
+               <div className="flex gap-2 mt-1 justify-center">
+                  {player.poison > 0 && <span className="text-green-400 text-xs font-black drop-shadow-md">💧{player.poison}</span>}
+                  {player.emblems > 0 && <span className="text-purple-400 text-xs font-black drop-shadow-md">🛡️{player.emblems}</span>}
+               </div>
             </div>
-            <div className="flex gap-1 ml-1 shrink-0">
-               {viewMode !== 'mana' && <button onClick={() => setViewMode('mana')} className="px-2 py-1 bg-emerald-700 border border-emerald-500 rounded text-[10px] text-white shadow-lg font-bold">Mana</button>}
-               {viewMode !== 'stats' && <button onClick={() => setViewMode('stats')} className="px-2 py-1 bg-gray-700 border border-gray-500 rounded text-[10px] text-white shadow-lg font-bold">Stats</button>}
-               {viewMode !== 'life' && <button onClick={() => setViewMode('life')} className="px-2 py-1 bg-blue-600 border border-blue-500 rounded text-[10px] text-white shadow-lg font-bold">Chiudi</button>}
+            
+            {/* Tasti laterali allineati a destra */}
+            <div className="absolute right-2 top-2 bottom-2 flex flex-col justify-center gap-1 z-30">
+               <button onClick={() => setViewMode(viewMode === 'mana' ? 'life' : 'mana')} className={`px-2 py-1 rounded shadow-lg text-[10px] font-bold transition-colors ${viewMode === 'mana' ? 'bg-blue-600 text-white' : 'bg-emerald-700 text-white'}`}>{viewMode === 'mana' ? 'Chiudi' : 'Mana'}</button>
+               <button onClick={() => setViewMode(viewMode === 'stats' || viewMode === 'search' ? 'life' : 'stats')} className={`px-2 py-1 rounded shadow-lg text-[10px] font-bold transition-colors ${viewMode === 'stats' || viewMode === 'search' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'}`}>{viewMode === 'stats' || viewMode === 'search' ? 'Chiudi' : 'Stats'}</button>
             </div>
          </div>
       );
 
-      if (viewMode === 'stats') {
-        return (
-          <div className="w-full h-full flex flex-col rounded-xl border-2 border-blue-600 bg-gray-900 overflow-hidden shadow-2xl relative">
-            <PlayerHeader />
-            <div className="overflow-y-auto space-y-1 p-1 text-xs flex-1">
-              <div className="bg-gray-800 p-1 rounded-lg border border-gray-700">
-                <p className="text-[10px] text-blue-300 font-bold mb-1 uppercase">🖼️ Sfondo Cmdr</p>
-                <div className="flex gap-1">
-                  <input type="text" placeholder="Nome Inglese" value={cmdQuery} onChange={e=>setCmdQuery(e.target.value)} className="flex-1 bg-gray-900 border border-gray-600 rounded px-2 text-white text-[10px] outline-none" />
-                  <button onClick={searchCmdBg} className="bg-blue-600 px-2 rounded text-white font-bold text-[10px] transition-colors">OK</button>
-                </div>
-              </div>
-              <div className="bg-gray-800 p-1 rounded-lg border border-gray-700">
-                <p className="text-[10px] text-red-400 font-bold mb-1 uppercase text-center">⚔️ Danni Cmd Da:</p>
-                {opponents.map(opp => ( <StatRow key={opp.id} label={opp.name} value={player.cmdDmg[opp.id]} onSub={() => updateStat(player.id, 'cmdDmg', -1, opp.id)} onAdd={() => updateStat(player.id, 'cmdDmg', 1, opp.id)} /> ))}
-              </div>
-              <div className="space-y-1 bg-gray-800 p-1 rounded-lg border border-gray-700">
-                <StatRow label="💧 Veleno" value={player.poison} onSub={() => updateStat(player.id, 'poison', -1)} onAdd={() => updateStat(player.id, 'poison', 1)} />
-                <StatRow label="⚔️ Lanci Cmd" value={player.cmdCasts} onSub={() => updateStat(player.id, 'cmdCasts', -1)} onAdd={() => updateStat(player.id, 'cmdCasts', 1)} />
-                <StatRow label="🛡️ Emblemi" value={player.emblems} onSub={() => updateStat(player.id, 'emblems', -1)} onAdd={() => updateStat(player.id, 'emblems', 1)} />
-              </div>
-            </div>
-            <button onClick={() => toggleImmunity(player.id)} className={`w-full py-1 mt-auto text-[10px] font-bold shadow-md transition-colors ${player.immune ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 border-t border-gray-600 hover:bg-gray-700'}`}>{player.immune ? '🛡️ Immunità Attiva' : 'Attiva Immunità'}</button>
-          </div>
-        );
-      }
-
-      if (viewMode === 'mana') {
-         return (
-          <div className="w-full h-full flex flex-col rounded-xl border-2 border-emerald-500 bg-gray-900 overflow-hidden shadow-2xl relative">
-            <PlayerHeader />
-            <div className="flex-1 grid grid-cols-2 gap-1 overflow-y-auto p-1">
-               {ManaColors.map(m => (
-                  <div key={m.id} className="bg-gray-800 rounded border border-gray-700 flex flex-col items-center justify-center p-1">
-                     <span className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] border shadow-sm ${m.color}`}>{m.label}</span>
-                     <div className="flex w-full justify-between items-center mt-1 px-1">
-                        <button onClick={() => updateMana(player.id, m.id, -1)} className="w-6 h-6 bg-red-900/80 hover:bg-red-800 text-red-300 font-bold rounded transition-colors">-</button>
-                        <span className="text-lg font-black text-white">{player.mana[m.id]}</span>
-                        <button onClick={() => updateMana(player.id, m.id, 1)} className="w-6 h-6 bg-green-900/80 hover:bg-green-800 text-green-300 font-bold rounded transition-colors">+</button>
-                     </div>
-                  </div>
-               ))}
-            </div>
-            <button onClick={() => { ManaColors.forEach(m => updatePlayerConfig(player.id, 'mana', {W:0,U:0,B:0,R:0,G:0,C:0})) }} className="w-full py-1 mt-auto text-[10px] font-bold shadow-md bg-gray-700 hover:bg-gray-600 text-white border-t border-gray-600 transition-colors">🔄 Svuota Pool</button>
-          </div>
-         );
-      }
-
       return (
-        <div className={`w-full h-full flex flex-col rounded-xl border-2 relative ${isDead ? 'border-red-600 bg-red-950/90' : 'border-gray-600 bg-gray-900/90'} overflow-hidden shadow-2xl`}>
-          {player.bgUrl && <img src={player.bgUrl} className="absolute inset-0 w-full h-full object-contain p-2 opacity-50 pointer-events-none" />}
-          {isDead && <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-40 pointer-events-none z-20">💀</div>}
-          {player.immune && <div className="absolute inset-0 flex items-center justify-center text-6xl opacity-30 pointer-events-none text-blue-500 drop-shadow-lg z-20">🛡️</div>}
+        <div className={`w-full h-full flex flex-col rounded-xl border-2 relative overflow-hidden shadow-2xl ${isDead ? 'border-red-600 bg-red-950/90' : 'border-gray-600 bg-gray-900'}`}>
+          {player.bgUrl && <img src={player.bgUrl} className="absolute inset-0 w-full h-full object-cover opacity-40 pointer-events-none" />}
+          {isDead && <div className="absolute inset-0 flex items-center justify-center text-8xl opacity-50 pointer-events-none z-10">💀</div>}
+          {player.immune && <div className="absolute inset-0 flex items-center justify-center text-8xl opacity-30 pointer-events-none text-blue-500 drop-shadow-lg z-10">🛡️</div>}
+          
           <PlayerHeader />
-          <div className="flex-1 flex items-center justify-between px-1 z-30 h-[85%] pb-1">
-            <button onClick={() => updateStat(player.id, 'life', -1)} className="w-12 h-full flex items-center justify-center text-4xl font-bold text-red-500 active:bg-red-500/30 rounded-l transition-colors drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">-</button>
-            <div className="text-6xl md:text-8xl font-black text-white drop-shadow-[0_4px_6px_rgba(0,0,0,1)]">{player.life}</div>
-            <button onClick={() => updateStat(player.id, 'life', 1)} className="w-12 h-full flex items-center justify-center text-4xl font-bold text-green-500 active:bg-green-500/30 rounded-r transition-colors drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">+</button>
+          
+          <div className="flex-1 flex items-center justify-between px-2 z-20 h-[70%]">
+            <button onClick={() => updateStat(player.id, 'life', -1)} className="w-1/4 h-full flex items-center justify-center text-6xl font-bold text-red-500 active:bg-red-500/20 rounded-l-xl transition-colors drop-shadow-md">-</button>
+            <div className="w-2/4 text-center text-7xl md:text-9xl font-black text-white drop-shadow-[0_5px_8px_rgba(0,0,0,1)]">{player.life}</div>
+            <button onClick={() => updateStat(player.id, 'life', 1)} className="w-1/4 h-full flex items-center justify-center text-6xl font-bold text-green-500 active:bg-green-500/20 rounded-r-xl transition-colors drop-shadow-md">+</button>
           </div>
+
+          {/* OVERLAY STATISTICHE (LIFETAP STYLE) */}
+          {viewMode === 'stats' && (
+             <div className="absolute inset-0 top-[20%] bg-black/90 backdrop-blur-md z-40 flex flex-col p-3 animate-fade overflow-y-auto border-t border-gray-600">
+                <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-1">
+                    <h3 className="text-white font-black text-lg">Danni Comandante</h3>
+                    <button onClick={() => setViewMode('life')} className="bg-blue-600 px-3 py-1 rounded text-white font-bold text-xs shadow-lg">Chiudi</button>
+                </div>
+                {opponents.map(opp => (
+                   <BigStatRow key={opp.id} label={`Da: ${opp.name}`} value={player.cmdDmg[opp.id]} onSub={() => updateStat(player.id, 'cmdDmg', -1, opp.id)} onAdd={() => updateStat(player.id, 'cmdDmg', 1, opp.id)} />
+                ))}
+                <h3 className="text-white font-black text-lg mt-2 mb-2 text-center border-b border-gray-700 pb-1">Stato Giocatore</h3>
+                <BigStatRow label="💧 Veleno" value={player.poison} onSub={() => updateStat(player.id, 'poison', -1)} onAdd={() => updateStat(player.id, 'poison', 1)} />
+                <BigStatRow label="⚔️ Lanci Cmdr" value={player.cmdCasts} onSub={() => updateStat(player.id, 'cmdCasts', -1)} onAdd={() => updateStat(player.id, 'cmdCasts', 1)} />
+                <BigStatRow label="🛡️ Emblemi" value={player.emblems} onSub={() => updateStat(player.id, 'emblems', -1)} onAdd={() => updateStat(player.id, 'emblems', 1)} />
+                
+                <div className="mt-auto flex flex-col gap-2 pt-4">
+                   <button onClick={() => setViewMode('search')} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg border border-indigo-400">🔍 Cerca Sfondo Comandante</button>
+                   <button onClick={() => toggleImmunity(player.id)} className={`w-full py-3 font-bold rounded-xl shadow-lg border ${player.immune ? 'bg-blue-600 text-white border-blue-400' : 'bg-gray-800 text-gray-300 border-gray-600'}`}>{player.immune ? '🛡️ Immunità: ON' : 'Attiva Immunità'}</button>
+                </div>
+             </div>
+          )}
+
+          {/* OVERLAY CERCA COMANDANTE */}
+          {viewMode === 'search' && (
+             <div className="absolute inset-0 top-[20%] bg-gray-900/95 backdrop-blur-md z-40 flex flex-col p-3 animate-fade border-t border-gray-600">
+                <div className="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
+                   <h3 className="text-white font-bold text-lg">Cerca Sfondo Cmdr</h3>
+                   <button onClick={()=>setViewMode('stats')} className="bg-gray-600 px-3 py-1 rounded text-white font-bold shadow-lg">Indietro</button>
+                </div>
+                <div className="flex gap-2 mb-3">
+                   <input autoFocus type="text" placeholder="Es. Y'shtola" value={cmdQuery} onChange={e=>setCmdQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&eseguiRicercaCmd()} className="flex-1 bg-gray-800 border border-gray-600 text-white rounded p-2 outline-none font-bold" />
+                   <button onClick={eseguiRicercaCmd} className="bg-blue-600 px-4 rounded text-white font-bold shadow">{isSearching ? '...' : 'Vai'}</button>
+                </div>
+                <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 content-start">
+                   {cmdResults.map(c => (
+                      <img key={c.id} src={c.img} onClick={() => { updatePlayerConfig(player.id, 'bgUrl', c.img); setViewMode('life'); setCmdResults([]); setCmdQuery(""); }} className="w-full rounded cursor-pointer border border-gray-600 shadow-md active:scale-95" />
+                   ))}
+                   {cmdResults.length === 0 && !isSearching && <p className="col-span-2 text-center text-gray-500 font-bold mt-4">Nessun risultato.</p>}
+                </div>
+             </div>
+          )}
+
+          {/* OVERLAY MANA */}
+          {viewMode === 'mana' && (
+             <div className="absolute inset-0 top-[20%] bg-gray-900/95 backdrop-blur-md z-40 flex flex-col p-3 animate-fade border-t border-gray-600">
+                <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-1">
+                    <h3 className="text-white font-black text-lg">Mana Pool</h3>
+                    <button onClick={() => setViewMode('life')} className="bg-blue-600 px-3 py-1 rounded text-white font-bold text-xs shadow-lg">Chiudi</button>
+                </div>
+                <div className="flex-1 grid grid-cols-3 gap-2 overflow-y-auto mb-2">
+                   {ManaColors.map(m => (
+                      <div key={m.id} className="bg-gray-800 rounded-xl border border-gray-700 flex flex-col items-center justify-center py-2">
+                         <span className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm border shadow-sm mb-2 ${m.color}`}>{m.label}</span>
+                         <div className="flex w-full justify-between items-center px-1">
+                            <button onClick={() => updateMana(player.id, m.id, -1)} className="w-8 h-8 bg-red-900/80 active:bg-red-700 text-red-300 font-black text-xl rounded-lg flex items-center justify-center">-</button>
+                            <span className="text-2xl font-black text-white">{player.mana[m.id]}</span>
+                            <button onClick={() => updateMana(player.id, m.id, 1)} className="w-8 h-8 bg-green-900/80 active:bg-green-700 text-green-300 font-black text-xl rounded-lg flex items-center justify-center">+</button>
+                         </div>
+                      </div>
+                   ))}
+                </div>
+                <button onClick={() => { ManaColors.forEach(m => updatePlayerConfig(player.id, 'mana', {W:0,U:0,B:0,R:0,G:0,C:0})) }} className="w-full py-3 font-bold shadow-lg bg-red-900 hover:bg-red-800 text-white border border-red-500 rounded-xl transition-colors">🔄 Svuota Pool Mana</button>
+             </div>
+          )}
         </div>
       );
     };
-
-    const StatRow = ({ label, value, onSub, onAdd }) => (
-      <div className="flex justify-between items-center bg-gray-900 rounded px-1 py-1 mt-1 border border-gray-700 shadow-inner">
-        <span className="text-gray-300 font-bold text-[10px] truncate max-w-[50%]">{label}</span>
-        <div className="flex items-center space-x-1">
-          <button onClick={onSub} className="w-6 h-6 bg-red-900/80 rounded font-bold text-red-300 transition-colors">-</button>
-          <span className="w-4 text-center font-bold text-white text-xs">{value}</span>
-          <button onClick={onAdd} className="w-6 h-6 bg-green-900/80 rounded font-bold text-green-300 transition-colors">+</button>
-        </div>
-      </div>
-    );
 
     const DiceRoller = () => {
       const [numPlayers, setNumPlayers] = useState(4);
