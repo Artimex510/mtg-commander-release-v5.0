@@ -1406,6 +1406,7 @@
     // --- DECK ANALYSIS E CONDIVISIONE ---
     const DeckAnalysis = ({deck, navigate}) => {
       const [showQR, setShowQR] = useState(false);
+
       if(!deck) return null;
 
       const cmds = deck.cards.filter(c => c.isCommander);
@@ -1436,6 +1437,7 @@
       };
 
       const listText = deck.cards.map(c => `1 ${c.name}`).join('\n');
+
       const copyPrompt = () => {
          const prompt = `Agisci come un Master professionista e Deckbuilder esperto di Magic: The Gathering.\nFormato: ${deck.format || 'Commander'}. ${deck.format==='commander'? `Comandante: ${cmdName}.`:''}\nAnalizza curva di mana, banlist e dammi consigli su cosa tagliare e aggiungere.\nLista:\n${listText}`;
          navigator.clipboard.writeText(prompt); alert("Prompt copiato! Incollalo su ChatGPT o Gemini.");
@@ -1710,7 +1712,7 @@
             <button onClick={() => updateStat(player.id, 'life', 1)} className="w-1/4 h-full flex items-center justify-center text-6xl font-bold text-green-500 active:bg-green-500/20 rounded-r-xl transition-colors drop-shadow-md">+</button>
           </div>
 
-          {/* OVERLAY STATISTICHE (LIFETAP STYLE) */}
+          {/* OVERLAY STATISTICHE GIGANTI */}
           {viewMode === 'stats' && (
              <div className="absolute inset-0 top-[20%] bg-black/90 backdrop-blur-md z-40 flex flex-col p-3 animate-fade overflow-y-auto border-t border-gray-600">
                 <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-1">
@@ -1725,29 +1727,34 @@
                 <BigStatRow label="⚔️ Lanci Cmdr" value={player.cmdCasts} onSub={() => updateStat(player.id, 'cmdCasts', -1)} onAdd={() => updateStat(player.id, 'cmdCasts', 1)} />
                 <BigStatRow label="🛡️ Emblemi" value={player.emblems} onSub={() => updateStat(player.id, 'emblems', -1)} onAdd={() => updateStat(player.id, 'emblems', 1)} />
                 
-                <div className="mt-auto flex flex-col gap-2 pt-4">
+                <div className="mt-auto flex flex-col gap-2 pt-4 pb-2">
                    <button onClick={() => setViewMode('search')} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg border border-indigo-400">🔍 Cerca Sfondo Comandante</button>
                    <button onClick={() => toggleImmunity(player.id)} className={`w-full py-3 font-bold rounded-xl shadow-lg border ${player.immune ? 'bg-blue-600 text-white border-blue-400' : 'bg-gray-800 text-gray-300 border-gray-600'}`}>{player.immune ? '🛡️ Immunità: ON' : 'Attiva Immunità'}</button>
                 </div>
              </div>
           )}
 
-          {/* OVERLAY CERCA COMANDANTE */}
+          {/* OVERLAY CERCA COMANDANTE A SCHERMO INTERO */}
           {viewMode === 'search' && (
-             <div className="absolute inset-0 top-[20%] bg-gray-900/95 backdrop-blur-md z-40 flex flex-col p-3 animate-fade border-t border-gray-600">
-                <div className="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
-                   <h3 className="text-white font-bold text-lg">Cerca Sfondo Cmdr</h3>
-                   <button onClick={()=>setViewMode('stats')} className="bg-gray-600 px-3 py-1 rounded text-white font-bold shadow-lg">Indietro</button>
+             <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-xl z-[9999] flex flex-col p-4 sm:p-6 animate-fade" style={{ margin: 0, borderRadius: 0 }}>
+                <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-3 mt-2">
+                   <h3 className="text-white font-black text-xl sm:text-2xl truncate pr-2">🔍 Sfondo: {player.name}</h3>
+                   <button onClick={()=>setViewMode('stats')} className="bg-red-600 px-4 py-2 rounded-lg text-white font-bold shadow-lg shrink-0">Chiudi</button>
                 </div>
-                <div className="flex gap-2 mb-3">
-                   <input autoFocus type="text" placeholder="Es. Y'shtola" value={cmdQuery} onChange={e=>setCmdQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&eseguiRicercaCmd()} className="flex-1 bg-gray-800 border border-gray-600 text-white rounded p-2 outline-none font-bold" />
-                   <button onClick={eseguiRicercaCmd} className="bg-blue-600 px-4 rounded text-white font-bold shadow">{isSearching ? '...' : 'Vai'}</button>
+                <div className="flex gap-2 mb-4">
+                   <input autoFocus type="text" placeholder="Scrivi nome es. Urza" value={cmdQuery} onChange={e=>setCmdQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&eseguiRicercaCmd()} className="flex-1 bg-gray-800 border border-gray-500 text-white rounded-xl p-3 outline-none font-bold text-lg focus:border-blue-500" />
+                   <button onClick={eseguiRicercaCmd} className="bg-blue-600 px-6 rounded-xl text-white font-black shadow-lg text-lg active:scale-95 transition-transform">{isSearching ? '...' : 'Cerca'}</button>
                 </div>
-                <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 content-start">
+                <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-3 content-start pb-10">
                    {cmdResults.map(c => (
-                      <img key={c.id} src={c.img} onClick={() => { updatePlayerConfig(player.id, 'bgUrl', c.img); setViewMode('life'); setCmdResults([]); setCmdQuery(""); }} className="w-full rounded cursor-pointer border border-gray-600 shadow-md active:scale-95" />
+                      <div key={c.id} className="relative rounded-xl overflow-hidden cursor-pointer border-2 border-transparent hover:border-blue-500 shadow-xl active:scale-95 transition-all bg-black" onClick={() => { updatePlayerConfig(player.id, 'bgUrl', c.img); setViewMode('life'); setCmdResults([]); setCmdQuery(""); }}>
+                         <img src={c.img} className="w-full object-cover aspect-[4/3] opacity-90 hover:opacity-100" />
+                         <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black via-black/80 to-transparent p-2 pt-6 text-center">
+                            <span className="text-white text-[10px] md:text-xs font-bold drop-shadow-md">{c.name}</span>
+                         </div>
+                      </div>
                    ))}
-                   {cmdResults.length === 0 && !isSearching && <p className="col-span-2 text-center text-gray-500 font-bold mt-4">Nessun risultato.</p>}
+                   {cmdResults.length === 0 && !isSearching && <p className="col-span-full text-center text-gray-400 font-bold mt-10 text-xl">Cerca un Comandante per vedere le sue art.</p>}
                 </div>
              </div>
           )}
