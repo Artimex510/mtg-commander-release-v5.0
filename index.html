@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MTG Commander Companion</title>
-  
+
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#000000">
 
@@ -13,9 +13,13 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <!-- LIBRERIA OCR AGGIUNTA PER LO SCAN CARTE -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  
+
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-storage-compat.js"></script>
+
   <style>
     body { -webkit-font-smoothing: antialiased; overflow-x: hidden; user-select: none; -webkit-touch-callout: none; background-color: #000; }
     .animate-fade { animation: fadeIn 0.2s ease-in-out; forwards; }
@@ -39,6 +43,93 @@
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBKfSnZ7ujw5uYZ_RnlM034exD28jfMunQ",
+      authDomain: "mtg-for-fun-bf36b.firebaseapp.com",
+      projectId: "mtg-for-fun-bf36b",
+      storageBucket: "mtg-for-fun-bf36b.firebasestorage.app",
+      messagingSenderId: "742946721330",
+      appId: "1:742946721330:web:3cb566ddd6c8b9ada7362b"
+    };
+
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const storage = firebase.storage();
+
+    const syncToCloud = async (uid) => {
+      try {
+        let rawDecks = [];
+        try { rawDecks = JSON.parse(localStorage.getItem('mtg_decks')) || []; } catch(e){}
+        if (!Array.isArray(rawDecks)) rawDecks = [];
+
+        // Filtro sicuro per togliere il peso dalle proxy senza errori
+        const cleanCard = (c) => { 
+            if (!c) return c;
+            let newC = { ...c };
+            if (newC.isCustom || 
+               (typeof newC.proxyImage === 'string' && newC.proxyImage.startsWith('data:image')) || 
+               (typeof newC.image === 'string' && newC.image.startsWith('data:image')) ||
+               (typeof newC.imageBack === 'string' && newC.imageBack.startsWith('data:image'))) { 
+                newC.proxyImage = ""; 
+                newC.image = ""; 
+                newC.imageBack = "";
+            } 
+            return newC; 
+        };
+        
+        const decksToCloud = rawDecks.map(deck => ({ ...deck, cards: (deck.cards || []).map(cleanCard) }));
+        
+        let rawCart = { singles: [], decks: [], lastUpdated: Date.now() };
+        try { 
+            const parsedCart = JSON.parse(localStorage.getItem('mtg_cart'));
+            if (parsedCart && typeof parsedCart === 'object') rawCart = { ...rawCart, ...parsedCart };
+        } catch(e){}
+        
+        const cartToCloud = { 
+            ...rawCart, 
+            singles: (rawCart.singles || []).map(cleanCard), 
+            decks: (rawCart.decks || []).map(d => ({ ...d, cards: (d.cards || []).map(cleanCard) })) 
+        };
+
+        // SALVATAGGIO IMMEDIATO DI MAZZI E CARRELLO (Niente più blocco Storage!)
+        await db.collection('users').doc(uid).set({ 
+            decks: decksToCloud, 
+            cart: cartToCloud, 
+            lastSync: new Date().toISOString() 
+        }, { merge: true });
+
+      } catch (err) { 
+          console.error("Errore salvataggio Firebase:", err);
+          alert("Firebase ha bloccato il salvataggio!\nMotivo: " + err.message); 
+      }
+    };
+
+    const syncFromCloud = async (uid) => {
+      try {
+          const doc = await db.collection('users').doc(uid).get();
+          if(doc.exists) {
+            const data = doc.data();
+            if(data.decks) localStorage.setItem('mtg_decks', JSON.stringify(data.decks));
+            if(data.cart) localStorage.setItem('mtg_cart', JSON.stringify(data.cart));
+            return true;
+          }
+          return false;
+      } catch(err) { console.error("Errore syncFromCloud:", err); return false; }
+    };
+
+    // --- FUNZIONI STORAGE DISATTIVATE ---
+    // Le svuotiamo per ingannare l'app: crederà di aver salvato/eliminato 
+    // la proxy nel cloud, ma l'operazione avverrà solo sul tuo telefono locale.
+    
+    const syncSingleProxyToCloud = async (uid, proxy) => {
+        // Disattivato: Proxy 100% locali
+    };
+
+    const deleteProxyFromCloud = async (uid, proxyId) => {
+        // Disattivato: Proxy 100% locali
+    };
 
     const Icons = {
       Menu: () => <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"/></svg>,
@@ -72,37 +163,101 @@
     const categoriesOrder = ["Comandante", "Companion", "Creature", "Planeswalker", "Istantanei", "Stregonerie", "Artefatti", "Incantesimi", "Terre", "Altro", "Sideboard"];
 
     const buildCardKey = (c) => c.name + (c.isCustom ? c.proxyImage : "") + c.id + !!c.isSideboard + !!c.isCommander + !!c.isCompanion;
+    
+    const addToCart = (type, item) => {
+        let cart = JSON.parse(localStorage.getItem('mtg_cart') || '{"singles":[], "decks":[], "lastUpdated":0}');
+        if (!cart.singles) cart.singles = [];
+        if (!cart.decks) cart.decks = [];
+        
+        if (type === 'single') {
+            cart.singles.push(item);
+            alert(`${item.name} aggiunto al Carrello!`);
+        } else {
+            cart.decks.push(item);
+            alert(`Mazzo "${item.name}" aggiunto al Carrello!`);
+        }
+        
+        cart.lastUpdated = Date.now();
+        localStorage.setItem('mtg_cart', JSON.stringify(cart));
+        
+        const user = firebase.auth().currentUser;
+        if (user) syncToCloud(user.uid).catch(e => console.error("Errore Sync Carrello:", e));
+    };
 
     function App() {
-      const [introState, setIntroState] = useState('initial'); 
-      const videoRef = useRef(null);
+      const [introState, setIntroState] = useState('initial');
+      const [currentUser, setCurrentUser] = useState(null);
       const [view, setView] = useState('home');
       const [menuOpen, setMenuOpen] = useState(false);
-      const [activeDeck, setActiveDeck] = useState(null); 
-      
+      const [activeDeck, setActiveDeck] = useState(null);
+      const videoRef = useRef(null);
+
       useEffect(() => {
-        window.history.pushState(null, null, window.location.href);
-        const handlePopState = (e) => {
-            const leave = window.confirm("Vuoi uscire dall'app? Le modifiche non salvate andranno perse.");
-            if (!leave) { window.history.pushState(null, null, window.location.href); }
-        };
-        const handleBeforeUnload = (e) => { e.returnValue = "Vuoi uscire dall'app?"; };
-        window.addEventListener("popstate", handlePopState);
-        window.addEventListener("beforeunload", handleBeforeUnload);
+        let unsubscribeSnapshot = null;
+        const unsubscribeAuth = auth.onAuthStateChanged(u => {
+          setCurrentUser(u);
+          if (u) {
+            unsubscribeSnapshot = db.collection('users').doc(u.uid).onSnapshot(doc => {
+              if (doc.exists) {
+                const data = doc.data();
+                
+                if (data.decks) {
+                   const localProxies = JSON.parse(localStorage.getItem('mtg_proxies') || '[]');
+                   const enrichedDecks = data.decks.map(d => ({ ...d, cards: d.cards.map(c => { if (c.isCustom) { const p = localProxies.find(x => x.id === c.id); if (p) return { ...c, proxyImage: p.proxyImage || p.image, image: p.image || p.proxyImage }; } return c; }) }));
+                   localStorage.setItem('mtg_decks', JSON.stringify(enrichedDecks));
+                   window.dispatchEvent(new Event("cloud_sync_update"));
+                }
+                
+                if (data.cart) {
+                   localStorage.setItem('mtg_cart', JSON.stringify(data.cart));
+                   window.dispatchEvent(new Event("cloud_cart_update"));
+                }
+
+                if (data.proxies && Array.isArray(data.proxies)) {
+                   let localProxies = JSON.parse(localStorage.getItem('mtg_proxies') || '[]');
+                   let updated = false;
+                   data.proxies.forEach(cp => {
+                      if (!cp || !cp.id) return;
+                      const existingIndex = localProxies.findIndex(p => p && p.id === cp.id);
+                      if (existingIndex === -1) {
+                          localProxies.push(cp); 
+                          updated = true; 
+                      } else {
+                          const localProxy = localProxies[existingIndex];
+                          const localImg = (localProxy && typeof localProxy.proxyImage === 'string') ? localProxy.proxyImage : "";
+                          const cloudImg = (cp && typeof cp.proxyImage === 'string') ? cp.proxyImage : "";
+                          
+                          if (localImg.startsWith('data:image') && cloudImg.startsWith('http')) {
+                              localProxies[existingIndex] = cp; 
+                              updated = true; 
+                          }
+                      }
+                   });
+                   if(updated) {
+                      localStorage.setItem('mtg_proxies', JSON.stringify(localProxies));
+                      window.dispatchEvent(new Event("cloud_proxies_update"));
+                   }
+                }
+              }
+            }, (error) => { console.error("Errore Snapshot:", error); });
+          } else {
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+          }
+        });
+        
         return () => {
-           window.removeEventListener("popstate", handlePopState);
-           window.removeEventListener("beforeunload", handleBeforeUnload);
+          unsubscribeAuth();
+          if (unsubscribeSnapshot) unsubscribeSnapshot();
         };
       }, []);
-
+      
       const navigate = (newView, deck = null) => { setActiveDeck(deck); setView(newView); setMenuOpen(false); };
 
       const handlePlayIntro = () => {
          if(videoRef.current) {
              const playPromise = videoRef.current.play();
              if (playPromise !== undefined) {
-                 playPromise.then(() => { setIntroState('playing'); })
-                 .catch(e => { console.error("Errore video:", e); setIntroState('finished'); });
+                 playPromise.then(() => { setIntroState('playing'); }).catch(e => { console.error("Errore video:", e); setIntroState('finished'); });
              }
          } else { setIntroState('finished'); }
       };
@@ -153,10 +308,10 @@
                     <h2 className="text-2xl font-bold mb-6 border-b border-gray-700 pb-2">Menu</h2>
                     <nav className="space-y-4">
                       <MenuBtn icon={<Icons.Home/>} text="Home" onClick={() => navigate('home')} />
-                      {/* NUOVA VOCE SCAN & DATABASE AGGIUNTA QUI */}
                       <MenuBtn icon="🔍" text="Database & Scan" onClick={() => navigate('cardsearch')} />
                       <MenuBtn icon="🎴" text="Deckbuilding" onClick={() => navigate('deckbuilder')} />
                       <MenuBtn icon="📚" text="I Miei Mazzi" onClick={() => navigate('mydecks')} />
+                      <MenuBtn icon="🛒" text="Carrello" onClick={() => navigate('cart')} />
                       <MenuBtn icon="🃏" text="Testa Mazzo" onClick={() => navigate('playtester')} />
                       <MenuBtn icon="✨" text="Proxy Creator" onClick={() => navigate('proxycreator')} />
                       <MenuBtn icon="🖼️" text="Le Mie Proxy" onClick={() => navigate('myproxies')} />
@@ -182,10 +337,9 @@
               <main className={`${(view !== 'game_active' && view !== 'playtester_active') ? 'pt-20 px-2 pb-10' : ''} flex-1 relative z-10`}>
                 {view === 'home' && <HomeView navigate={navigate} />}
                 {view === 'deckbuilder' && <DeckBuilder navigate={navigate} activeDeck={activeDeck} />}
-                {/* ROTTA DEL NUOVO MODULO SCAN */}
                 {view === 'cardsearch' && <CardSearchExplorer navigate={navigate} />}
-                
                 {view === 'mydecks' && <MyDecks navigate={navigate} />}
+                {view === 'cart' && <CartView navigate={navigate} />}
                 {view === 'myproxies' && <MyProxies navigate={navigate} />}
                 {view === 'viewdeck' && <DeckViewer deck={activeDeck} navigate={navigate} />}
                 {view === 'analysis' && <DeckAnalysis deck={activeDeck} navigate={navigate} />}
@@ -208,7 +362,6 @@
         <span className="flex items-center justify-center w-6 h-6">{icon}</span> <span className="font-semibold text-sm">{text}</span>
       </button>
     );
-
     const HomeView = ({navigate}) => (
       <div className="flex flex-col items-center justify-center pt-8">
         <div className="mb-12 text-center">
@@ -225,6 +378,117 @@
       </div>
     );
 
+    const CartView = ({navigate}) => {
+      const [cart, setCart] = useState({singles: [], decks: [], lastUpdated: 0});
+      const [tab, setTab] = useState('singles');
+
+      const checkAndLoadCart = () => {
+         let c = JSON.parse(localStorage.getItem('mtg_cart') || '{"singles":[], "decks":[], "lastUpdated":0}');
+         if (!c.singles) c.singles = []; if (!c.decks) c.decks = [];
+         
+         if (!c.lastUpdated) c.lastUpdated = Date.now();
+         
+         const QUINDICI_GIORNI = 15 * 24 * 60 * 60 * 1000;
+         
+         if ((Date.now() - c.lastUpdated > QUINDICI_GIORNI) && (c.singles.length > 0 || c.decks.length > 0)) {
+            c = { singles: [], decks: [], lastUpdated: Date.now() };
+            localStorage.setItem('mtg_cart', JSON.stringify(c));
+            const user = firebase.auth().currentUser;
+            if (user) syncToCloud(user.uid);
+            alert("🧹 Il carrello è stato svuotato automaticamente perché è rimasto inattivo per oltre 15 giorni.");
+         }
+         setCart(c);
+      };
+
+      useEffect(() => { 
+         checkAndLoadCart();
+         window.addEventListener("cloud_cart_update", checkAndLoadCart);
+         return () => window.removeEventListener("cloud_cart_update", checkAndLoadCart);
+      }, []);
+
+      const remove = (type, index) => {
+         let newCart = {...cart}; newCart[type].splice(index, 1);
+         newCart.lastUpdated = Date.now();
+         setCart(newCart); 
+         localStorage.setItem('mtg_cart', JSON.stringify(newCart));
+         
+         const user = firebase.auth().currentUser;
+         if (user) syncToCloud(user.uid);
+      };
+
+      const checkoutSingles = () => {
+         if(cart.singles.length === 0) return alert("Carrello vuoto!");
+         
+         const counts = {};
+         cart.singles.forEach(c => { counts[c.name] = (counts[c.name] || 0) + 1; });
+         const list = Object.keys(counts).map(name => `${counts[name]} ${name}`).join('\n');
+         
+         navigator.clipboard.writeText(list);
+         alert("Lista copiata negli appunti!\nTi porto su CardTrader: clicca su 'Incolla testo' (lo trovi sulla destra) e fai Incolla per caricare le carte.");
+         window.open("https://www.cardtrader.com/it/wishlists/new", "_blank");
+      };
+
+      const checkoutDeck = (deck) => {
+         const counts = {};
+         deck.cards.forEach(c => { counts[c.name] = (counts[c.name] || 0) + 1; });
+         const list = Object.keys(counts).map(name => `${counts[name]} ${name}`).join('\n');
+         
+         navigator.clipboard.writeText(list);
+         alert(`Mazzo "${deck.name}" copiato!\nTi porto su CardTrader: clicca su 'Incolla testo' (lo trovi sulla destra) e fai Incolla per caricare le carte.`);
+         window.open("https://www.cardtrader.com/it/wishlists/new", "_blank");
+      };
+
+      return (
+        <div className="max-w-md mx-auto bg-gray-800/90 p-6 rounded-xl shadow-lg border border-gray-600 mt-4 backdrop-blur-sm animate-fade">
+          <h2 className="text-3xl font-black text-center text-yellow-500 drop-shadow-md mb-6">🛒 Carrello</h2>
+          
+          <div className="flex gap-2 mb-6">
+             <button onClick={()=>setTab('singles')} className={`flex-1 font-black py-2 rounded-lg transition-colors ${tab==='singles'?'bg-yellow-600 text-white shadow-lg':'bg-gray-700 text-gray-400'}`}>Carte Singole ({cart.singles.length})</button>
+             <button onClick={()=>setTab('decks')} className={`flex-1 font-black py-2 rounded-lg transition-colors ${tab==='decks'?'bg-yellow-600 text-white shadow-lg':'bg-gray-700 text-gray-400'}`}>Mazzi Interi ({cart.decks.length})</button>
+          </div>
+
+          {tab === 'singles' && (
+             <div className="space-y-4 animate-fade">
+                {cart.singles.length === 0 ? <p className="text-center text-gray-400 font-bold">Nessuna carta singola.</p> : (
+                   <React.Fragment>
+                     <div className="bg-gray-900 p-2 rounded-lg border border-gray-700 max-h-64 overflow-y-auto space-y-2">
+                        {cart.singles.map((c, i) => (
+                           <div key={i} className="flex justify-between items-center bg-gray-800 p-2 rounded shadow">
+                              <span className="font-bold text-sm text-white truncate w-2/3">{c.name}</span>
+                              <div className="flex items-center gap-3">
+                                 <span className="text-yellow-400 font-black text-sm">{c.prices && c.prices.eur ? `€${c.prices.eur}` : 'N/D'}</span>
+                                 <button onClick={()=>remove('singles', i)} className="text-red-500 font-black text-lg w-6 h-6 flex items-center justify-center bg-red-900/30 rounded">✖</button>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                     <button onClick={checkoutSingles} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all">ACQUISTA SINGOLE SU CARDTRADER</button>
+                   </React.Fragment>
+                )}
+             </div>
+          )}
+
+          {tab === 'decks' && (
+             <div className="space-y-4 animate-fade">
+                {cart.decks.length === 0 ? <p className="text-center text-gray-400 font-bold">Nessun mazzo nel carrello.</p> : (
+                   <div className="space-y-4">
+                      {cart.decks.map((d, i) => (
+                         <div key={i} className="bg-gray-900 p-3 rounded-xl border border-gray-700 shadow-inner">
+                            <div className="flex justify-between items-center mb-3">
+                               <h3 className="font-black text-white text-lg truncate w-3/4">{d.name}</h3>
+                               <button onClick={()=>remove('decks', i)} className="text-red-500 font-black text-lg bg-red-900/30 px-3 py-1 rounded">✖</button>
+                            </div>
+                            <button onClick={()=>checkoutDeck(d)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-lg shadow transition-all">ACQUISTA MAZZO SU CARDTRADER</button>
+                         </div>
+                      ))}
+                   </div>
+                )}
+             </div>
+          )}
+        </div>
+      );
+    };
+    
     const ActionCard = ({icon, text, onClick, color}) => (
       <button onClick={onClick} className={`${color} p-6 rounded-xl flex flex-col items-center justify-center border border-gray-600 shadow-xl active:scale-95 transition-all backdrop-blur-md`}>
         <div className="text-4xl mb-2 drop-shadow-md">{icon}</div>
@@ -233,57 +497,175 @@
     );
 
     const BackupView = ({navigate}) => {
-      const exportData = () => {
-         const data = { decks: JSON.parse(localStorage.getItem('mtg_decks') || '[]'), proxies: JSON.parse(localStorage.getItem('mtg_proxies') || '[]') };
-         const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
-         const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `MTG_Companion_Backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      const [loading, setLoading] = useState(false);
+      const user = auth.currentUser; 
+
+      const handleAuth = async (isSignUp) => {
+        if(!email || password.length < 6) return alert("Inserisci un'email valida e una password di almeno 6 caratteri.");
+        setLoading(true);
+        try {
+          if(isSignUp) {
+            await auth.createUserWithEmailAndPassword(email, password);
+            alert("Account creato con successo!");
+          } else {
+            await auth.signInWithEmailAndPassword(email, password);
+            alert("Bentornato!");
+          }
+        } catch(err) { alert("Errore: " + err.message); }
+        setLoading(false);
       };
-      const importData = (e) => {
-         const file = e.target.files[0]; if(!file) return; const reader = new FileReader();
-         reader.onload = (event) => {
-             try {
-                 const data = JSON.parse(event.target.result);
-                 if(data.decks) localStorage.setItem('mtg_decks', JSON.stringify(data.decks));
-                 if(data.proxies) localStorage.setItem('mtg_proxies', JSON.stringify(data.proxies));
-                 alert("Dati Ripristinati con successo! Ora hai tutti i mazzi."); navigate('mydecks');
-             } catch(err) { alert("Errore: Il file di backup sembra corrotto."); }
-         };
-         reader.readAsText(file);
+
+      const handleGoogleLogin = async () => {
+        setLoading(true);
+        try {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          await auth.signInWithPopup(provider);
+          alert("Accesso con Google completato!");
+        } catch(err) { alert("Errore Google Login: " + err.message); }
+        setLoading(false);
+      };
+
+      const forceSyncUp = async () => {
+        if(!user) return;
+        setLoading(true);
+        try {
+          await syncToCloud(user.uid);
+          alert("Mazzi salvati nel Cloud con successo!");
+        } catch(err) { alert("Errore durante il salvataggio sul Cloud."); }
+        setLoading(false);
+      };
+
+      const forceSyncDown = async () => {
+        if(!user) return;
+        if(!confirm("ATTENZIONE: Stai per sovrascrivere i mazzi di questo dispositivo con quelli del Cloud. Procedere?")) return;
+        setLoading(true);
+        try {
+          const success = await syncFromCloud(user.uid);
+          if(success) alert("Mazzi ripristinati dal Cloud!");
+          else alert("Nessun mazzo trovato sul Cloud per questo account.");
+        } catch(err) { alert("Errore durante il ripristino."); }
+        setLoading(false);
+      };
+
+      const handleManualExport = () => {
+        const dataToExport = {
+           decks: JSON.parse(localStorage.getItem('mtg_decks') || '[]'),
+           proxies: JSON.parse(localStorage.getItem('mtg_proxies') || '[]')
+        };
+        const dataStr = JSON.stringify(dataToExport);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `MTG_Companion_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      const handleManualImport = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!confirm("ATTENZIONE: Importando questo file sovrascriverai i mazzi e le proxy attualmente salvati su questo dispositivo. Sei sicuro?")) {
+           e.target.value = null; return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+           try {
+              const importedData = JSON.parse(event.target.result);
+              if (importedData.decks) {
+                 localStorage.setItem('mtg_decks', JSON.stringify(importedData.decks));
+                 window.dispatchEvent(new Event("cloud_sync_update"));
+              }
+              if (importedData.proxies) {
+                 localStorage.setItem('mtg_proxies', JSON.stringify(importedData.proxies));
+                 window.dispatchEvent(new Event("cloud_proxies_update"));
+              }
+              alert("Dati ripristinati con successo dal file locale!");
+           } catch (err) {
+              alert("Errore nella lettura del file. Assicurati che sia un file di backup valido generato da questa app.");
+           }
+        };
+        reader.readAsText(file);
       };
 
       return (
-         <div className="max-w-md mx-auto bg-gray-800/90 p-6 rounded-xl shadow-lg border border-gray-600 mt-4 backdrop-blur-sm space-y-6">
-           <h2 className="text-3xl font-black text-center text-blue-400 drop-shadow-md">Backup & Sync</h2>
-           <p className="text-gray-300 text-sm font-semibold text-center leading-snug">Usa questa funzione per passare istantaneamente tutti i tuoi mazzi e le tue proxy dal Telefono al PC, o viceversa.</p>
-           <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner">
-              <h3 className="text-white font-bold mb-2 flex items-center gap-2">1. Esporta Dati</h3>
-              <p className="text-xs text-gray-400 mb-4">Salva l'intero database sul tuo dispositivo. Invia questo file su Google Drive, Telegram o Email.</p>
-              <button onClick={exportData} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-colors">
-                 💾 SCARICA BACKUP (.json)
+        <div className="max-w-md mx-auto bg-gray-800/90 p-6 rounded-xl shadow-lg border border-gray-600 mt-4 backdrop-blur-sm space-y-6 animate-fade">
+          <h2 className="text-3xl font-black text-center text-blue-400 drop-shadow-md">Cloud Sync</h2>
+          <p className="text-gray-300 text-sm font-semibold text-center leading-snug">
+            L'app salva tutto automaticamente offline in locale. Usa questa cassaforte per fare il backup dei tuoi mazzi online.
+          </p>
+          
+          {!user ? (
+            <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner space-y-3">
+              <button onClick={handleGoogleLogin} disabled={loading} className="w-full bg-white hover:bg-gray-100 text-black font-black py-3 rounded-lg shadow flex items-center justify-center gap-2 transition-colors mb-4">
+                <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                Accedi con Google
               </button>
-           </div>
-           <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner">
-              <h3 className="text-white font-bold mb-2 flex items-center gap-2">2. Importa Dati</h3>
-              <p className="text-xs text-red-400 mb-4 font-bold">⚠️ ATTENZIONE: Caricando un file, sovrascriverai i mazzi attuali su questo dispositivo con quelli del backup.</p>
-              <label className="block w-full bg-green-600 hover:bg-green-500 text-center py-4 rounded-xl cursor-pointer font-black text-white shadow-[0_0_15px_rgba(22,163,74,0.4)] transition-colors">
-                 📂 CARICA BACKUP (.json)
-                 <input type="file" accept=".json" className="hidden" onChange={importData} />
-              </label>
-           </div>
-         </div>
+              
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-px bg-gray-700 flex-1"></div><span className="text-gray-500 text-xs font-bold uppercase">Oppure</span><div className="h-px bg-gray-700 flex-1"></div>
+              </div>
+
+              <input type="email" placeholder="La tua Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full bg-gray-800 border border-gray-600 rounded p-3 text-white font-bold outline-none" />
+              <input type="password" placeholder="Password (min 6 car.)" value={password} onChange={e=>setPassword(e.target.value)} className="w-full bg-gray-800 border border-gray-600 rounded p-3 text-white font-bold outline-none" />
+              <div className="flex gap-2 pt-2">
+                <button onClick={()=>handleAuth(false)} disabled={loading} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-lg shadow transition-colors">ACCEDI</button>
+                <button onClick={()=>handleAuth(true)} disabled={loading} className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-black py-3 rounded-lg shadow transition-colors">REGISTRATI</button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 shadow-inner text-center">
+              <p className="text-sm text-green-400 font-bold mb-1">🟢 Connesso come</p>
+              <p className="text-white font-black truncate mb-6 text-lg">{user.email || user.displayName || "Utente Google"}</p>
+              
+              <div className="space-y-4">
+                <button onClick={forceSyncUp} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all">
+                  ☁️ SALVA MAZZI NEL CLOUD
+                </button>
+                <button onClick={forceSyncDown} disabled={loading} className="w-full bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-xl shadow-[0_0_15px_rgba(22,163,74,0.4)] transition-all">
+                  📥 RECUPERA MAZZI DAL CLOUD
+                </button>
+                <button onClick={() => auth.signOut()} className="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-2 rounded-lg mt-4 transition-colors">Disconnetti Account</button>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-6 border-t border-gray-700 mt-6">
+             <h3 className="text-xl font-black text-center text-emerald-400 drop-shadow-md mb-2">Backup Manuale Offline</h3>
+             <p className="text-gray-400 text-xs text-center font-bold mb-4">Salva mazzi e proxy in un file sul tuo dispositivo, utile se non hai connessione o non vuoi registrarti.</p>
+             <div className="flex gap-2">
+               <button onClick={handleManualExport} className="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white font-black py-3 rounded-xl shadow transition-colors">📦 ESPORTA</button>
+               <label className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-black py-3 rounded-xl shadow transition-colors cursor-pointer text-center flex items-center justify-center">
+                 📂 IMPORTA
+                 <input type="file" accept=".json" className="hidden" onChange={handleManualImport} />
+               </label>
+             </div>
+          </div>
+        </div>
       );
     };
 
     const MyProxies = ({navigate}) => {
       const [proxies, setProxies] = useState([]);
       
-      useEffect(() => { setProxies(JSON.parse(localStorage.getItem('mtg_proxies') || '[]')); }, []);
+      useEffect(() => { 
+         const loadProxies = () => setProxies(JSON.parse(localStorage.getItem('mtg_proxies') || '[]'));
+         loadProxies();
+         window.addEventListener("cloud_proxies_update", loadProxies);
+         return () => window.removeEventListener("cloud_proxies_update", loadProxies);
+      }, []);
 
       const deleteProxy = (id) => {
          if(confirm("Vuoi eliminare questa Proxy? Verrà rimossa dal database (ma resterà nei mazzi dove l'hai già applicata finché non li modifichi).")) {
              const newProxies = proxies.filter(p => p.id !== id);
              localStorage.setItem('mtg_proxies', JSON.stringify(newProxies));
              setProxies(newProxies);
+             if (auth.currentUser) { deleteProxyFromCloud(auth.currentUser.uid, id); }
          }
       };
 
@@ -314,7 +696,6 @@
          </div>
       );
     };
-
     // --- PROXY EDITOR ---
     const ProxyEditor = ({card, onClose, onSave, isStandalone}) => {
       const [baseQuery, setBaseQuery] = useState("");
@@ -341,6 +722,10 @@
       const handleImage = (e) => { const file = e.target.files[0]; if(file) { const r = new FileReader(); r.onload = (ev) => setCustomImg(ev.target.result); r.readAsDataURL(file); } };
 
       const eseguiSalvataggio = () => {
+        const proxyAttuali = JSON.parse(localStorage.getItem('mtg_proxies') || '[]');
+        if (proxyAttuali.length >= 20) {
+            return alert("Limite raggiunto! Puoi avere al massimo 20 Proxy contemporaneamente. Eliminane qualcuna per crearne di nuove.");
+        }
         if(!baseCard || !customImg) return alert("Carica un'immagine!");
         setIsGenerating(true);
         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
@@ -367,6 +752,9 @@
              const finalDataUrl = canvas.toDataURL("image/jpeg", 0.9);
              const newProxy = { id: 'proxy-' + Date.now(), name: customName || baseCard.name, image: finalDataUrl, proxyImage: finalDataUrl, imageBack: null, type: baseCard.type, cmc: baseCard.cmc || 0, colors: card ? (card.colors || []) : [], isCommander: false, isCustom: true };
              let savedProxies = JSON.parse(localStorage.getItem('mtg_proxies') || '[]'); savedProxies.push(newProxy); localStorage.setItem('mtg_proxies', JSON.stringify(savedProxies));
+             
+             if (auth.currentUser) { syncSingleProxyToCloud(auth.currentUser.uid, newProxy); }
+
              setIsGenerating(false);
              if(isStandalone) { alert("Proxy Salvata nel Database!"); } else { onSave({...card, proxyImage: finalDataUrl, name: customName || card.name, isCustom: true}); }
           };
@@ -531,7 +919,7 @@
                          if (!oracle_text) oracle_text = c.card_faces.map(f=>f.oracle_text).join(' ');
                          if (!mana_cost) mana_cost = c.card_faces[0].mana_cost;
                      }
-                     return { id: c.id || Math.random().toString(), name: c.name || "Sconosciuta", image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, isCommander: false, isCompanion: false, oracle_text: oracle_text, mana_cost: mana_cost };
+                     return { id: c.id || Math.random().toString(), name: c.name || "Sconosciuta", image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, isCommander: false, isCompanion: false, oracle_text: oracle_text, mana_cost: mana_cost, prices: c.prices || {} };
                    });
                    if(isNewSearch) { setAllResults(cards); setLocalPage(0); } else { setAllResults(prev => [...prev, ...cards]); }
                    setNextScryfallUrl(data.has_more ? data.next_page : null);
@@ -579,6 +967,11 @@
         const newDeckObj = { id: activeDeck ? activeDeck.id : Date.now(), name: deckName, format: deckFormat, cards: deck, rulebreaker: rulebreaker, date: new Date().toLocaleDateString() };
         if(activeDeck) savedDecks = savedDecks.map(d => d.id === activeDeck.id ? newDeckObj : d); else savedDecks.push(newDeckObj);
         localStorage.setItem('mtg_decks', JSON.stringify(savedDecks));
+        
+        if (auth.currentUser) {
+            syncToCloud(auth.currentUser.uid).catch(e => console.error("Errore Cloud:", e));
+        }
+        
         alert("Mazzo Salvato con successo!"); navigate('mydecks');
       };
 
@@ -598,7 +991,7 @@
                      if (!oracle_text) oracle_text = c.card_faces.map(f=>f.oracle_text).join(' ');
                      if (!mana_cost) mana_cost = c.card_faces[0].mana_cost;
                  }
-                 arr.push({ id: c.id || Math.random().toString(), deckId: 'import-' + Date.now() + '-' + Math.random() + '-' + j, name: c.name || "Sconosciuta", image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, isCommander: false, isSideboard: addToSideboard, isCompanion: false, oracle_text: oracle_text, mana_cost: mana_cost });
+                 arr.push({ id: c.id || Math.random().toString(), deckId: 'import-' + Date.now() + '-' + Math.random() + '-' + j, name: c.name || "Sconosciuta", image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, isCommander: false, isSideboard: addToSideboard, isCompanion: false, oracle_text: oracle_text, mana_cost: mana_cost, prices: c.prices || {} });
                } return arr;
             }).catch(e => { return []; });
           promises.push(p);
@@ -965,7 +1358,6 @@
         </div>
       );
     };
-
     // --- VISUALIZZATORE MAZZI (SOLO LETTURA E TRADUZIONE) ---
     const DeckViewer = ({deck, navigate}) => {
       const [viewingCard, setViewingCard] = useState(null);
@@ -1141,7 +1533,12 @@
       const [manaFilter, setManaFilter] = useState([]);
       const [formatFilter, setFormatFilter] = useState("");
       
-      useEffect(() => { setDecks(JSON.parse(localStorage.getItem('mtg_decks') || '[]')); }, []);
+      useEffect(() => { 
+        const loadDecks = () => setDecks(JSON.parse(localStorage.getItem('mtg_decks') || '[]'));
+        loadDecks();
+        window.addEventListener("cloud_sync_update", loadDecks);
+        return () => window.removeEventListener("cloud_sync_update", loadDecks);
+      }, []);
 
       const toggleMana = (m) => setManaFilter(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
 
@@ -1150,6 +1547,9 @@
           const newD = decks.filter(d => d.id !== id);
           localStorage.setItem('mtg_decks', JSON.stringify(newD));
           setDecks(newD);
+          if (auth.currentUser) {
+              syncToCloud(auth.currentUser.uid).catch(e => console.error("Errore Cloud:", e));
+          }
         }
       };
 
@@ -1168,7 +1568,7 @@
          let colorMatch = true;
          if (manaFilter.length > 0) {
              const deckColors = new Set();
-             const cardsToCheck = cmds.length > 0 ? cmds : d.cards; // Se non c'è comandante, cerca nei colori del mazzo intero
+             const cardsToCheck = cmds.length > 0 ? cmds : d.cards;
              cardsToCheck.forEach(c => { if(c.colors) c.colors.forEach(col => deckColors.add(col)); });
              colorMatch = manaFilter.every(m => deckColors.has(m));
          }
@@ -1225,6 +1625,7 @@
                         <button onClick={() => exportText(d)} className="bg-gray-700 hover:bg-gray-600 text-white rounded py-1 shadow transition-colors">Esporta</button>
                         <button onClick={() => deleteDeck(d.id)} className="bg-red-800 hover:bg-red-700 text-white rounded py-1 shadow transition-colors">Elimina</button>
                      </div>
+                     <button onClick={() => addToCart('deck', d)} className="w-full mt-1 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded py-1 shadow transition-colors">🛒 Carrello</button>
                    </div>
                 </div>
               );
@@ -1415,7 +1816,6 @@
         let newPlayers = [];
         for(let i=1; i<=numPlayers; i++) {
           let cmdDmg = {}; for(let j=1; j<=numPlayers; j++) { if(i!==j) cmdDmg[`P${j}`] = 0; }
-          // Aggiunti nel setup i nuovi segnalini (rad, energy, exp, ticket) e status (monarch, initiative, blessing, dayNight)
           newPlayers.push({ 
              id: `P${i}`, name: `Player ${i}`, life: startLife, poison: 0, cmdCasts: 0, emblems: 0, immune: false, cmdDmg: cmdDmg, bgUrl: null, mana: {W:0, U:0, B:0, R:0, G:0, C:0},
              rad: 0, energy: 0, exp: 0, ticket: 0, monarch: false, initiative: false, blessing: false, dayNight: 'none'
@@ -1510,7 +1910,6 @@
 
       const saveName = () => { setIsEditingName(false); if(tempName.trim() !== "") updatePlayerConfig(player.id, 'name', tempName.trim()); else setTempName(player.name); };
 
-      // Intestazione Player (nome centrato e badge dei segnalini)
       const PlayerHeader = () => (
          <div className="relative flex justify-center items-center bg-black/50 p-2 z-30 border-b border-gray-700 h-[25%] min-h-[50px]">
             <div className="flex flex-col items-center justify-center overflow-hidden z-20 w-3/4">
@@ -1554,7 +1953,6 @@
             <button onClick={() => updateStat(player.id, 'life', 1)} className="w-1/4 h-full flex items-center justify-center text-6xl font-bold text-green-500 active:bg-green-500/20 rounded-r-xl transition-colors drop-shadow-md">+</button>
           </div>
 
-          {/* OVERLAY STATISTICHE GIGANTI (FULL SCREEN CON SCROLL) */}
           {viewMode === 'stats' && (
              <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-xl z-[9999] flex flex-col p-4 sm:p-6 animate-fade" style={{ margin: 0, borderRadius: 0 }}>
                 <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-3 mt-2">
@@ -1562,14 +1960,12 @@
                    <button onClick={()=>setViewMode('life')} className="bg-red-600 px-4 py-2 rounded-lg text-white font-bold shadow-lg shrink-0">Chiudi</button>
                 </div>
                 <div className="flex-1 overflow-y-auto pb-10 space-y-6">
-                   {/* Danni Comandante */}
                    <div>
                       <h4 className="text-blue-400 font-black text-lg mb-2 uppercase border-b border-gray-700 pb-1">⚔️ Danni Comandante</h4>
                       {opponents.map(opp => (
                          <BigStatRow key={opp.id} label={`Da: ${opp.name}`} value={player.cmdDmg[opp.id]} onSub={() => updateStat(player.id, 'cmdDmg', -1, opp.id)} onAdd={() => updateStat(player.id, 'cmdDmg', 1, opp.id)} />
                       ))}
                    </div>
-                   {/* Segnalini Numerici */}
                    <div>
                       <h4 className="text-green-400 font-black text-lg mb-2 uppercase border-b border-gray-700 pb-1">🔢 Segnalini</h4>
                       <BigStatRow label="💧 Veleno" value={player.poison} onSub={() => updateStat(player.id, 'poison', -1)} onAdd={() => updateStat(player.id, 'poison', 1)} />
@@ -1580,7 +1976,6 @@
                       <BigStatRow label="✨ Esperienza" value={player.exp || 0} onSub={() => updateStat(player.id, 'exp', -1)} onAdd={() => updateStat(player.id, 'exp', 1)} />
                       <BigStatRow label="🎫 Ticket" value={player.ticket || 0} onSub={() => updateStat(player.id, 'ticket', -1)} onAdd={() => updateStat(player.id, 'ticket', 1)} />
                    </div>
-                   {/* Status Aggiuntivi Toggles */}
                    <div>
                       <h4 className="text-yellow-400 font-black text-lg mb-2 uppercase border-b border-gray-700 pb-1">🔰 Designatori di Stato</h4>
                       <div className="grid grid-cols-2 gap-3">
@@ -1590,7 +1985,6 @@
                          <button onClick={() => { let next = 'day'; if(player.dayNight === 'day') next = 'night'; else if(player.dayNight === 'night') next = 'none'; updatePlayerConfig(player.id, 'dayNight', next); }} className={`p-4 rounded-xl font-bold shadow-lg flex flex-col items-center justify-center gap-1 border transition-all ${player.dayNight === 'day' ? 'bg-yellow-500 border-yellow-300 text-black' : (player.dayNight === 'night' ? 'bg-blue-900 border-blue-500 text-white' : 'bg-gray-800 border-gray-600 text-gray-400')}`}><span className="text-2xl">{player.dayNight === 'day' ? '☀️' : (player.dayNight === 'night' ? '🌙' : '🌤️')}</span> {player.dayNight === 'day' ? 'Giorno' : (player.dayNight === 'night' ? 'Notte' : 'Nessuno')}</button>
                       </div>
                    </div>
-                   {/* Azioni Extra */}
                    <div className="pt-4 flex flex-col gap-3">
                       <button onClick={() => setViewMode('search')} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg border border-blue-400 text-lg">🔍 Cerca Sfondo Comandante</button>
                       <button onClick={() => toggleImmunity(player.id)} className={`w-full py-4 font-black rounded-xl shadow-lg border text-lg ${player.immune ? 'bg-cyan-600 text-white border-cyan-400' : 'bg-gray-800 text-gray-300 border-gray-600'}`}>{player.immune ? '🛡️ Immunità (Danni Bloccati)' : 'Attiva Immunità (Ferma Danni)'}</button>
@@ -1599,7 +1993,6 @@
              </div>
           )}
 
-          {/* OVERLAY CERCA COMANDANTE A SCHERMO INTERO */}
           {viewMode === 'search' && (
              <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-xl z-[9999] flex flex-col p-4 sm:p-6 animate-fade" style={{ margin: 0, borderRadius: 0 }}>
                 <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-3 mt-2">
@@ -1624,7 +2017,6 @@
              </div>
           )}
 
-          {/* OVERLAY MANA (FULL SCREEN) */}
           {viewMode === 'mana' && (
              <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-xl z-[9999] flex flex-col p-4 sm:p-6 animate-fade" style={{ margin: 0, borderRadius: 0 }}>
                 <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3 mt-2">
@@ -1650,7 +2042,6 @@
       );
     };
 
-    // --- PLAYTESTER SANDBOX (TAVOLO VIRTUALE REINSERITO) ---
     const PlaytesterSandbox = ({view, setView, navigate}) => {
        const [decks, setDecks] = useState([]);
        const [selectedDeckId, setSelectedDeckId] = useState("");
@@ -1879,7 +2270,6 @@
       );
     };
 
-// --- DATABASE & SCAN CARTE (PARTE 4 AGGIORNATA CON OCR POTENZIATO) ---
     const CardSearchExplorer = ({navigate}) => {
       const [query, setQuery] = useState("");
       const [oracleText, setOracleText] = useState("");
@@ -1922,7 +2312,7 @@
                      if (!oracle_text) oracle_text = c.card_faces.map(f=>f.oracle_text).join(' ');
                      if (!mana_cost) mana_cost = c.card_faces[0].mana_cost;
                  }
-                 return { id: c.id, name: c.name, image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, oracle_text: oracle_text, mana_cost: mana_cost };
+                 return { id: c.id, name: c.name, image: img, imageBack: imgBack, type: c.type_line || "", cmc: c.cmc || 0, colors: c.color_identity || [], legalities: c.legalities || {}, printsUrl: c.prints_search_uri || null, oracle_text: oracle_text, mana_cost: mana_cost, prices: c.prices || {} };
                });
                if(isNewSearch) { setAllResults(cards); setLocalPage(0); } else { setAllResults(prev => [...prev, ...cards]); }
                setNextScryfallUrl(data.has_more ? data.next_page : null);
@@ -1946,7 +2336,6 @@
         eseguiRicerca(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(searchQuery.trim())}`, true);
       };
 
-      // NUOVO MOTORE SCAN POTENZIATO
       const handleScan = async (e) => {
          const file = e.target.files[0]; if(!file) return;
          if(typeof Tesseract === 'undefined') return alert("Il motore OCR sta ancora caricando, riprova tra qualche secondo.");
@@ -1954,12 +2343,10 @@
          setIsScanning(true); setScanProgress("Ottimizzo l'immagine...");
          
          try {
-            // PRE-ELABORAZIONE: Canvas per contrasto e bianco/nero
             const processedImgSrc = await new Promise((resolve) => {
                const img = new Image();
                img.onload = () => {
                   const canvas = document.createElement('canvas');
-                  // Limito la grandezza per non fondere la CPU del telefono
                   const maxDim = 1000;
                   let w = img.width; let h = img.height;
                   if (w > maxDim || h > maxDim) {
@@ -1968,7 +2355,6 @@
                   }
                   canvas.width = w; canvas.height = h;
                   const ctx = canvas.getContext('2d');
-                  // Magia nera: scala di grigi e contrasto altissimo
                   ctx.filter = 'grayscale(100%) contrast(300%) brightness(120%)';
                   ctx.drawImage(img, 0, 0, w, h);
                   resolve(canvas.toDataURL('image/jpeg', 0.9));
@@ -1981,15 +2367,12 @@
                logger: m => { if(m.status === 'recognizing text') setScanProgress(`Scansione OCR: ${Math.round(m.progress * 100)}%`); }
             });
             
-            // Pulizia del testo e Fuzzy Search
             const textLines = result.data.text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
             if(textLines.length > 0) {
-                // Prendiamo le prime due righe ripulite da simboli strani
                 let possibleName = textLines.slice(0, 2).join(' ').replace(/[^a-zA-Z\s,'-]/g, '').replace(/\s+/g, ' ').trim();
                 setQuery(possibleName);
                 setScanProgress(`Cerco: "${possibleName}"...`);
                 
-                // Ricerca Elastica (Fuzzy) per perdonare gli errori OCR
                 try {
                     const fuzzyRes = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(possibleName)}`);
                     const fuzzyData = await fuzzyRes.json();
@@ -2002,17 +2385,15 @@
                             if (!oracle_text) oracle_text = fuzzyData.card_faces.map(f=>f.oracle_text).join(' ');
                             if (!mana_cost) mana_cost = fuzzyData.card_faces[0].mana_cost;
                         }
-                        const finalCard = { id: fuzzyData.id, name: fuzzyData.name, image: img, imageBack: imgBack, type: fuzzyData.type_line || "", cmc: fuzzyData.cmc || 0, colors: fuzzyData.color_identity || [], legalities: fuzzyData.legalities || {}, printsUrl: fuzzyData.prints_search_uri || null, oracle_text: oracle_text, mana_cost: mana_cost };
+                        const finalCard = { id: fuzzyData.id, name: fuzzyData.name, image: img, imageBack: imgBack, type: fuzzyData.type_line || "", cmc: fuzzyData.cmc || 0, colors: fuzzyData.color_identity || [], legalities: fuzzyData.legalities || {}, printsUrl: fuzzyData.prints_search_uri || null, oracle_text: oracle_text, mana_cost: mana_cost, prices: fuzzyData.prices || {} };
                         
                         setAllResults([finalCard]); setLocalPage(0); setNextScryfallUrl(null);
                         setScanProgress(""); setIsScanning(false); return;
                     }
                 } catch(e) {}
-                
-                // Se la Fuzzy fallisce, fallback alla ricerca normale
                 searchCard(possibleName);
             } else {
-                alert("Testo non rilevato. Cerca di inquadrare bene il titolo in cima alla carta (o rimuovi la bustina se fa riflesso)!");
+                alert("Testo non rilevato. Cerca di inquadrare bene il titolo in cima alla carta!");
             }
          } catch(err) { console.error(err); alert("Errore OCR."); }
          setIsScanning(false); setScanProgress("");
@@ -2091,6 +2472,13 @@
                  {(itaImgBack || viewingCard.imageBack) && (
                     <button onClick={() => setShowBack(!showBack)} className="w-full max-w-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-lg shadow-md border border-gray-500 mb-4 transition-colors">🔄 {showBack ? "Vedi Fronte" : "Vedi Retro"}</button>
                  )}
+                 <div className="w-full max-w-sm bg-gray-900 p-3 rounded-xl border border-gray-700 flex justify-between items-center mb-4 shadow-inner">
+                    <div className="flex flex-col">
+                       <span className="text-gray-400 text-[10px] font-bold uppercase">Prezzo Scryfall</span>
+                       <span className="text-yellow-400 font-black text-lg">{(viewingCard.prices && viewingCard.prices.eur) ? `€ ${viewingCard.prices.eur}` : ((viewingCard.prices && viewingCard.prices.usd) ? `$ ${viewingCard.prices.usd}` : "N/D")}</span>
+                    </div>
+                    <button onClick={() => addToCart('single', viewingCard)} className="bg-yellow-600 hover:bg-yellow-500 text-white font-black px-4 py-2 rounded-lg shadow flex items-center gap-2 active:scale-95">🛒 AGGIUNGI</button>
+                 </div>
                  <div className="w-full max-w-sm mb-4 flex gap-2">
                     <button onClick={() => translateCard(viewingCard)} disabled={translating} className="flex-1 bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-[0_0_15px_rgba(67,56,202,0.4)] border border-indigo-500 transition-all text-xs">
                       {translating ? "Traduco..." : (showIta ? "🇬🇧 Torna in Inglese" : "🇮🇹 Traduci")}
@@ -2123,17 +2511,24 @@
              <div className="bg-gray-800/90 p-4 rounded-xl border border-gray-600 shadow-xl backdrop-blur-sm mt-4">
                  <h2 className="text-2xl font-black text-indigo-400 mb-2 border-b border-gray-700 pb-2">Database & Scan</h2>
                  
-                 {/* ZONA SCANNER */}
                  <div className="bg-indigo-900/30 border border-indigo-500 p-4 rounded-xl mb-6 shadow-inner text-center">
-                    <p className="text-indigo-200 text-xs font-bold mb-3">Punta la fotocamera sul TITOLO della carta (o caricala dalla galleria) per riconoscerla automaticamente!</p>
-                    <label className="block w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-xl cursor-pointer shadow-[0_0_15px_rgba(79,70,229,0.5)] transition-all">
-                       📸 SCANNERIZZA CARTA
-                       <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScan} />
-                    </label>
+                    <p className="text-indigo-200 text-xs font-bold mb-3">Scegli come inquadrare il TITOLO della carta per riconoscerla automaticamente!</p>
+                    <div className="flex gap-3">
+                       <label className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-black py-3 rounded-xl cursor-pointer shadow-[0_0_15px_rgba(79,70,229,0.5)] transition-all flex flex-col items-center justify-center">
+                          <span className="text-2xl mb-1">📸</span>
+                          <span className="text-xs">FOTOCAMERA</span>
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScan} />
+                       </label>
+                       
+                       <label className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-black py-3 rounded-xl cursor-pointer shadow-[0_0_15px_rgba(147,51,234,0.5)] transition-all flex flex-col items-center justify-center">
+                          <span className="text-2xl mb-1">🖼️</span>
+                          <span className="text-xs">GALLERIA</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleScan} />
+                       </label>
+                    </div>
                     {isScanning && <p className="text-yellow-400 font-black text-sm mt-3 animate-pulse">{scanProgress}</p>}
                  </div>
 
-                 {/* ZONA RICERCA MANUALE (Identica al Deckbuilder) */}
                  <h3 className="font-bold text-gray-300 mb-2">Ricerca Manuale:</h3>
                  <div className="flex gap-2 mb-2"><input type="text" placeholder="Nome (es. Plains)" value={query} onChange={e => setQuery(e.target.value)} onKeyPress={e => e.key === 'Enter' && searchCard(null)} className="flex-1 bg-gray-900 border border-gray-600 rounded p-3 text-white outline-none" /></div>
                  <div className="flex gap-2 mb-3"><input type="text" placeholder="Testo Abilità" value={oracleText} onChange={e => setOracleText(e.target.value)} onKeyPress={e => e.key === 'Enter' && searchCard(null)} className="flex-1 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm outline-none" /></div>
@@ -2171,7 +2566,6 @@
                  </button>
              </div>
 
-             {/* RISULTATI */}
              {allResults.length > 0 && (
                 <div className="bg-gray-800/90 p-4 rounded-xl border border-gray-600 backdrop-blur-sm animate-fade">
                   <div className="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
@@ -2190,7 +2584,7 @@
                     ))}
                   </div>
                 </div>
-              )}
+             )}
           </div>
         </div>
       );
